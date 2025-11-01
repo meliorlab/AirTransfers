@@ -10,6 +10,8 @@ import {
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { z } from "zod";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 
 // Helper to generate unique reference numbers
 function generateReferenceNumber(): string {
@@ -20,6 +22,25 @@ function generateReferenceNumber(): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configure session middleware
+  const PgSession = connectPgSimple(session);
+  
+  app.use(session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: 'session',
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+    }
+  }));
+
   // Admin authentication
   app.post("/api/admin/login", async (req: Request, res: Response) => {
     try {

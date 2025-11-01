@@ -384,7 +384,6 @@ export default function HeroSection() {
               {currentStep === 4 && (
                 <>
                   <div className="mb-6">
-                    <div className="h-1 bg-primary mb-6" />
                     <h2 className="text-2xl lg:text-3xl font-heading font-semibold text-foreground mb-2">
                       Finally, let's confirm your booking
                     </h2>

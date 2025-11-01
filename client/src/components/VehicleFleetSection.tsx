@@ -1,5 +1,4 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import standardVehicle from "@assets/generated_images/Standard_luxury_sedan_vehicle_ff80a51d.png";
 import luxuryVehicle from "@assets/generated_images/Premium_luxury_sedan_vehicle_c5b34ad0.png";
 import minivanVehicle from "@assets/generated_images/Luxury_minivan_passenger_vehicle_ec956515.png";
@@ -29,10 +28,6 @@ const vehicles = [
 ];
 
 export default function VehicleFleetSection() {
-  const handleSelect = (vehicleId: string) => {
-    console.log("Vehicle selected:", vehicleId);
-  };
-
   return (
     <div className="bg-background py-16 lg:py-24">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -68,16 +63,6 @@ export default function VehicleFleetSection() {
                   <span className="font-medium">{vehicle.capacity}</span>
                 </div>
               </CardContent>
-              <CardFooter className="p-6 pt-0">
-                <Button
-                  data-testid={`button-select-${vehicle.id}`}
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => handleSelect(vehicle.id)}
-                >
-                  Select Vehicle
-                </Button>
-              </CardFooter>
             </Card>
           ))}
         </div>

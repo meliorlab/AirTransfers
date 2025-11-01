@@ -10,9 +10,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import heroImage from "@assets/generated_images/Airport_professional_greeting_scene_d42210f5.png";
 
 export default function HeroSection() {
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   
   // Step 1 fields
@@ -35,17 +37,29 @@ export default function HeroSection() {
     // Validate required fields for each step
     if (currentStep === 1) {
       if (!pickupLocation || !dropoffLocation || !date || !partySize) {
-        console.log("Please fill in all required fields");
+        toast({
+          title: "Required fields missing",
+          description: "Please fill in all required fields before proceeding.",
+          variant: "destructive",
+        });
         return;
       }
     } else if (currentStep === 2) {
       if (!flightNumber || !vehicleClass) {
-        console.log("Please fill in all required fields");
+        toast({
+          title: "Required fields missing",
+          description: "Please fill in all required fields before proceeding.",
+          variant: "destructive",
+        });
         return;
       }
     } else if (currentStep === 3) {
       if (!fullName || !email || !contactNumber) {
-        console.log("Please fill in all required fields");
+        toast({
+          title: "Required fields missing",
+          description: "Please fill in all required fields before proceeding.",
+          variant: "destructive",
+        });
         return;
       }
     }
@@ -144,7 +158,7 @@ export default function HeroSection() {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="pickup" className="text-sm font-medium mb-1.5 block">
-                        Pickup Location
+                        Pickup Location <span className="text-destructive">*</span>
                       </Label>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -161,7 +175,7 @@ export default function HeroSection() {
 
                     <div>
                       <Label htmlFor="dropoff" className="text-sm font-medium mb-1.5 block">
-                        Drop-off Location
+                        Drop-off Location <span className="text-destructive">*</span>
                       </Label>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -200,7 +214,7 @@ export default function HeroSection() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="date" className="text-sm font-medium mb-1.5 block">
-                          Date & Time
+                          Date & Time <span className="text-destructive">*</span>
                         </Label>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -216,7 +230,7 @@ export default function HeroSection() {
                       </div>
                       <div>
                         <Label htmlFor="partySize" className="text-sm font-medium mb-1.5 block">
-                          Party Size
+                          Party Size <span className="text-destructive">*</span>
                         </Label>
                         <div className="relative">
                           <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -264,7 +278,7 @@ export default function HeroSection() {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="flightNumber" className="text-sm font-medium mb-1.5 block">
-                        Flight/Ferry Number
+                        Flight/Ferry Number <span className="text-destructive">*</span>
                       </Label>
                       <div className="relative">
                         <Plane className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -281,7 +295,7 @@ export default function HeroSection() {
 
                     <div>
                       <Label htmlFor="vehicleClass" className="text-sm font-medium mb-1.5 block">
-                        Vehicle Class
+                        Vehicle Class <span className="text-destructive">*</span>
                       </Label>
                       <Select value={vehicleClass} onValueChange={setVehicleClass}>
                         <SelectTrigger
@@ -335,7 +349,7 @@ export default function HeroSection() {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="fullName" className="text-sm font-medium mb-1.5 block">
-                        Full Name
+                        Full Name <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="fullName"
@@ -349,7 +363,7 @@ export default function HeroSection() {
 
                     <div>
                       <Label htmlFor="email" className="text-sm font-medium mb-1.5 block">
-                        Email
+                        Email <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="email"
@@ -364,7 +378,7 @@ export default function HeroSection() {
 
                     <div>
                       <Label htmlFor="contactNumber" className="text-sm font-medium mb-1.5 block">
-                        Contact Number
+                        Contact Number <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="contactNumber"

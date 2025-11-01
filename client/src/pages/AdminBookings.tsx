@@ -97,12 +97,12 @@ export default function AdminBookings() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Status</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select value={statusFilter || "all"} onValueChange={(value) => setStatusFilter(value === "all" ? "" : value)}>
                   <SelectTrigger data-testid="select-status-filter">
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All statuses</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
                     <SelectItem value="new">New</SelectItem>
                     <SelectItem value="paid_fee">Paid Fee</SelectItem>
                     <SelectItem value="driver_assigned">Driver Assigned</SelectItem>

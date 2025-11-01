@@ -29,12 +29,10 @@ export default function AdminLogin() {
     setIsLoading(true);
 
     try {
-      const response = await apiRequest("/api/admin/login", {
-        method: "POST",
-        body: JSON.stringify({ username, password }),
-      });
+      const response = await apiRequest("POST", "/api/admin/login", { username, password });
+      const data = await response.json();
 
-      if (response.success) {
+      if (data.success) {
         toast({
           title: "Login successful",
           description: "Welcome to the admin dashboard",

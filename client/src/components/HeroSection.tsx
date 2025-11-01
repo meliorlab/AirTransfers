@@ -32,6 +32,24 @@ export default function HeroSection() {
   const [contactNumber, setContactNumber] = useState("");
 
   const handleNext = () => {
+    // Validate required fields for each step
+    if (currentStep === 1) {
+      if (!pickupLocation || !dropoffLocation || !date || !partySize) {
+        console.log("Please fill in all required fields");
+        return;
+      }
+    } else if (currentStep === 2) {
+      if (!flightNumber || !vehicleClass) {
+        console.log("Please fill in all required fields");
+        return;
+      }
+    } else if (currentStep === 3) {
+      if (!fullName || !email || !contactNumber) {
+        console.log("Please fill in all required fields");
+        return;
+      }
+    }
+
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
       console.log(`Moving to step ${currentStep + 1}`);

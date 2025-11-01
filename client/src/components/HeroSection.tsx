@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import heroImage from "@assets/generated_images/Airport_professional_greeting_scene_d42210f5.png";
 
 export default function HeroSection() {
@@ -77,19 +79,52 @@ export default function HeroSection() {
     }
   };
 
+  const createBookingMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          customerName: fullName,
+          customerEmail: email,
+          customerPhone: contactNumber,
+          pickupLocation,
+          dropoffLocation,
+          accommodation,
+          pickupDate: new Date(date).toISOString(),
+          partySize: parseInt(partySize),
+          flightNumber,
+          vehicleClass,
+        }),
+      });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Booking created!",
+        description: `Your booking reference is ${data.referenceNumber}. We'll contact you shortly.`,
+      });
+      setCurrentStep(1);
+      setPickupLocation("");
+      setDropoffLocation("");
+      setAccommodation("");
+      setDate("");
+      setPartySize("1");
+      setFlightNumber("");
+      setVehicleClass("");
+      setFullName("");
+      setEmail("");
+      setContactNumber("");
+    },
+    onError: () => {
+      toast({
+        title: "Booking failed",
+        description: "There was an error creating your booking. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCheckout = () => {
-    console.log("Proceeding to checkout with data:", {
-      pickupLocation,
-      dropoffLocation,
-      accommodation,
-      date,
-      partySize,
-      flightNumber,
-      vehicleClass,
-      fullName,
-      email,
-      contactNumber,
-    });
+    createBookingMutation.mutate();
   };
 
   const getVehicleClassName = () => {
@@ -466,8 +501,9 @@ export default function HeroSection() {
                       data-testid="button-checkout"
                       className="flex-1 h-12 text-base font-semibold"
                       onClick={handleCheckout}
+                      disabled={createBookingMutation.isPending}
                     >
-                      Proceed to checkout
+                      {createBookingMutation.isPending ? "Processing..." : "Proceed to checkout"}
                     </Button>
                   </div>
                 </>

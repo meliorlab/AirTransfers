@@ -248,10 +248,6 @@ export default function HeroSection() {
                       </div>
                     </div>
 
-                    <div className="text-xs text-muted-foreground">
-                      www.yourdomain.com
-                    </div>
-
                     <Button
                       data-testid="button-next-step1"
                       className="w-full h-12 text-base font-semibold"

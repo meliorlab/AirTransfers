@@ -150,6 +150,15 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).partial({
+  referenceNumber: true,
+  status: true,
+  bookingFee: true,
+  driverFee: true,
+  totalAmount: true,
+  balanceDueToDriver: true,
+  driverId: true,
+  assignedAt: true,
 });
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;

@@ -26,8 +26,11 @@ export const drivers = pgTable("drivers", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   phone: text("phone").notNull(),
-  photoUrl: text("photo_url"),
-  vehicleInfo: text("vehicle_info"),
+  vehicleClass: text("vehicle_class").notNull(), // standard, luxury, minivan
+  vehicleDetails: text("vehicle_details"), // e.g., "Black Toyota Camry"
+  vehicleNumber: text("vehicle_number"), // License plate or vehicle number
+  vehiclePhotoUrl: text("vehicle_photo_url"),
+  driverPhotoUrl: text("driver_photo_url"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

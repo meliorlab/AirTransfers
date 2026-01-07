@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Users, Plane, Check, Link as LinkIcon, Building2 } from "lucide-react";
+import { Calendar, MapPin, Users, Plane, Check, Link as LinkIcon, Building2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -466,15 +466,38 @@ export default function HeroSection() {
                   </div>
 
                   <div className="border border-border rounded-md p-6 mb-6">
-                    <h3 className="text-center text-lg font-semibold text-foreground mb-2">
-                      Booking Fee
-                    </h3>
-                    <div className="text-center text-5xl font-bold text-primary mb-4">
-                      $30
-                    </div>
-                    <p className="text-center text-sm text-muted-foreground mb-6">
-                      Driver Fee: $30 (Paid directly to driver)
-                    </p>
+                    {activeTab === "hotel" ? (
+                      <>
+                        <h3 className="text-center text-lg font-semibold text-foreground mb-2">
+                          Booking Fee
+                        </h3>
+                        <div className="text-center text-5xl font-bold text-primary mb-4">
+                          $30
+                        </div>
+                        <p className="text-center text-sm text-muted-foreground mb-6">
+                          Driver Fee: $30 (Paid directly to driver)
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-center mb-3">
+                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Mail className="w-6 h-6 text-primary" />
+                          </div>
+                        </div>
+                        <h3 className="text-center text-lg font-semibold text-foreground mb-2">
+                          Custom Quote Required
+                        </h3>
+                        <p className="text-center text-sm text-muted-foreground mb-4">
+                          Since you're traveling to a custom destination, we'll send you a personalized pricing quote via email after you submit this booking.
+                        </p>
+                        <div className="bg-muted/50 rounded-md p-3 mb-4">
+                          <p className="text-center text-xs text-muted-foreground">
+                            Please check your email at <strong className="text-foreground">{email}</strong> for your quote and payment link.
+                          </p>
+                        </div>
+                      </>
+                    )}
 
                     <div className="space-y-3">
                       <div className="flex items-start gap-2">
@@ -533,7 +556,7 @@ export default function HeroSection() {
                       onClick={handleCheckout}
                       disabled={createBookingMutation.isPending}
                     >
-                      {createBookingMutation.isPending ? "Processing..." : "Complete Booking"}
+                      {createBookingMutation.isPending ? "Processing..." : "Submit Booking"}
                     </Button>
                   </div>
                 </>

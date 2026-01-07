@@ -75,6 +75,8 @@ export interface IStorage {
   updateBooking(id: string, booking: Partial<InsertBooking>): Promise<Booking | undefined>;
   assignDriver(bookingId: string, driverId: string): Promise<Booking | undefined>;
   updateBookingStatus(id: string, status: string): Promise<Booking | undefined>;
+  updateBookingPricing(id: string, pricing: { bookingFee?: string; driverFee?: string; totalAmount?: string; balanceDueToDriver?: string; pricingSet?: boolean }): Promise<Booking | undefined>;
+  markPaymentLinkSent(id: string): Promise<Booking | undefined>;
 }
 
 export class DbStorage implements IStorage {
@@ -295,6 +297,29 @@ export class DbStorage implements IStorage {
   async updateBookingStatus(id: string, status: string): Promise<Booking | undefined> {
     const result = await db.update(bookings)
       .set({ status, updatedAt: new Date() })
+      .where(eq(bookings.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateBookingPricing(id: string, pricing: { bookingFee?: string; driverFee?: string; totalAmount?: string; balanceDueToDriver?: string; pricingSet?: boolean }): Promise<Booking | undefined> {
+    const result = await db.update(bookings)
+      .set({ 
+        ...pricing,
+        updatedAt: new Date() 
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async markPaymentLinkSent(id: string): Promise<Booking | undefined> {
+    const result = await db.update(bookings)
+      .set({ 
+        paymentLinkSent: true,
+        paymentLinkSentAt: new Date(),
+        updatedAt: new Date() 
+      })
       .where(eq(bookings.id, id))
       .returning();
     return result[0];

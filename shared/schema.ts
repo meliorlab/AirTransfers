@@ -155,10 +155,13 @@ export const bookings = pgTable("bookings", {
   vehicleClass: text("vehicle_class").notNull(),
   
   // Pricing
-  bookingFee: decimal("booking_fee", { precision: 10, scale: 2 }).notNull().default("30.00"),
-  driverFee: decimal("driver_fee", { precision: 10, scale: 2 }).notNull().default("30.00"),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  balanceDueToDriver: decimal("balance_due_to_driver", { precision: 10, scale: 2 }).notNull().default("30.00"),
+  bookingFee: decimal("booking_fee", { precision: 10, scale: 2 }),
+  driverFee: decimal("driver_fee", { precision: 10, scale: 2 }),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
+  balanceDueToDriver: decimal("balance_due_to_driver", { precision: 10, scale: 2 }),
+  pricingSet: boolean("pricing_set").notNull().default(false),
+  paymentLinkSent: boolean("payment_link_sent").notNull().default(false),
+  paymentLinkSentAt: timestamp("payment_link_sent_at"),
   
   // Status
   status: text("status").notNull().default("new"), // new, paid_fee, driver_assigned, completed, canceled
@@ -187,6 +190,9 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   driverFee: true,
   totalAmount: true,
   balanceDueToDriver: true,
+  pricingSet: true,
+  paymentLinkSent: true,
+  paymentLinkSentAt: true,
   driverId: true,
   assignedAt: true,
 });

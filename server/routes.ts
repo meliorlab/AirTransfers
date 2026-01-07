@@ -389,21 +389,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update booking pricing (admin only)
+  app.patch("/api/admin/bookings/:id/pricing", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { bookingFee, driverFee, totalAmount, balanceDueToDriver } = req.body;
+      
+      const booking = await storage.updateBookingPricing(req.params.id, {
+        bookingFee,
+        driverFee,
+        totalAmount,
+        balanceDueToDriver,
+        pricingSet: true,
+      });
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error updating booking pricing:", error);
+      res.status(400).json({ error: "Failed to update pricing" });
+    }
+  });
+
+  // Send payment link to customer (admin only)
+  app.post("/api/admin/bookings/:id/send-payment-link", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      
+      if (!booking.pricingSet) {
+        return res.status(400).json({ error: "Pricing must be set before sending payment link" });
+      }
+      
+      // Mark payment link as sent
+      const updatedBooking = await storage.markPaymentLinkSent(req.params.id);
+      
+      // In production, this would send an actual email with Stripe payment link
+      // For now, we just mark it as sent
+      
+      res.json({ 
+        booking: updatedBooking,
+        message: `Payment link would be sent to ${booking.customerEmail}. Total amount: $${booking.totalAmount}` 
+      });
+    } catch (error) {
+      console.error("Error sending payment link:", error);
+      res.status(400).json({ error: "Failed to send payment link" });
+    }
+  });
+
   // Public booking creation endpoint (for customer form)
   app.post("/api/bookings", async (req: Request, res: Response) => {
     try {
       // Convert pickupDate string to Date object
       const pickupDate = req.body.pickupDate ? new Date(req.body.pickupDate) : undefined;
+      const isDestinationBooking = req.body.bookingType === "destination";
       
+      // For hotel bookings, set fixed pricing; for destination bookings, leave pricing null (pending quote)
       const bookingData = {
         ...req.body,
         pickupDate,
         referenceNumber: generateReferenceNumber(),
         status: "new",
-        bookingFee: "30.00",
-        driverFee: "30.00",
-        totalAmount: "30.00",
-        balanceDueToDriver: "30.00",
+        // Only set pricing for hotel bookings
+        bookingFee: isDestinationBooking ? null : "30.00",
+        driverFee: isDestinationBooking ? null : "30.00",
+        totalAmount: isDestinationBooking ? null : "30.00",
+        balanceDueToDriver: isDestinationBooking ? null : "30.00",
+        pricingSet: !isDestinationBooking, // Hotel bookings have pricing set, destination bookings need manual pricing
       };
       
       const data = insertBookingSchema.parse(bookingData);

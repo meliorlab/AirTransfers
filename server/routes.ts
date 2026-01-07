@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import {
   insertDriverSchema,
+  insertHotelSchema,
   insertZoneSchema,
   insertRateSchema,
   insertPricingRuleSchema,
@@ -155,6 +156,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ error: "Driver not found" });
     }
     res.json({ success: true });
+  });
+
+  // Hotels API (Admin)
+  app.get("/api/admin/hotels", requireAdmin, async (req: Request, res: Response) => {
+    const hotels = await storage.getAllHotels();
+    res.json(hotels);
+  });
+
+  app.get("/api/admin/hotels/:id", requireAdmin, async (req: Request, res: Response) => {
+    const hotel = await storage.getHotel(req.params.id);
+    if (!hotel) {
+      return res.status(404).json({ error: "Hotel not found" });
+    }
+    res.json(hotel);
+  });
+
+  app.post("/api/admin/hotels", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const data = insertHotelSchema.parse(req.body);
+      const hotel = await storage.createHotel(data);
+      res.json(hotel);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid hotel data" });
+    }
+  });
+
+  app.patch("/api/admin/hotels/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const hotel = await storage.updateHotel(req.params.id, req.body);
+      if (!hotel) {
+        return res.status(404).json({ error: "Hotel not found" });
+      }
+      res.json(hotel);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid hotel data" });
+    }
+  });
+
+  app.delete("/api/admin/hotels/:id", requireAdmin, async (req: Request, res: Response) => {
+    const success = await storage.deleteHotel(req.params.id);
+    if (!success) {
+      return res.status(404).json({ error: "Hotel not found" });
+    }
+    res.json({ success: true });
+  });
+
+  // Public Hotels API (for booking form)
+  app.get("/api/hotels", async (req: Request, res: Response) => {
+    const hotels = await storage.getActiveHotels();
+    res.json(hotels);
   });
 
   // Zones API

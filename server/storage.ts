@@ -4,6 +4,8 @@ import {
   type InsertAdminUser,
   type Driver,
   type InsertDriver,
+  type Hotel,
+  type InsertHotel,
   type Zone,
   type InsertZone,
   type Rate,
@@ -14,6 +16,7 @@ import {
   type InsertBooking,
   adminUsers,
   drivers,
+  hotels,
   zones,
   rates,
   pricingRules,
@@ -33,6 +36,14 @@ export interface IStorage {
   createDriver(driver: InsertDriver): Promise<Driver>;
   updateDriver(id: string, driver: Partial<InsertDriver>): Promise<Driver | undefined>;
   deleteDriver(id: string): Promise<boolean>;
+  
+  // Hotels
+  getAllHotels(): Promise<Hotel[]>;
+  getActiveHotels(): Promise<Hotel[]>;
+  getHotel(id: string): Promise<Hotel | undefined>;
+  createHotel(hotel: InsertHotel): Promise<Hotel>;
+  updateHotel(id: string, hotel: Partial<InsertHotel>): Promise<Hotel | undefined>;
+  deleteHotel(id: string): Promise<boolean>;
   
   // Zones
   getAllZones(): Promise<Zone[]>;
@@ -105,6 +116,35 @@ export class DbStorage implements IStorage {
 
   async deleteDriver(id: string): Promise<boolean> {
     const result = await db.delete(drivers).where(eq(drivers.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Hotels
+  async getAllHotels(): Promise<Hotel[]> {
+    return await db.select().from(hotels).orderBy(desc(hotels.createdAt));
+  }
+
+  async getActiveHotels(): Promise<Hotel[]> {
+    return await db.select().from(hotels).where(eq(hotels.isActive, true)).orderBy(hotels.name);
+  }
+
+  async getHotel(id: string): Promise<Hotel | undefined> {
+    const result = await db.select().from(hotels).where(eq(hotels.id, id));
+    return result[0];
+  }
+
+  async createHotel(hotel: InsertHotel): Promise<Hotel> {
+    const result = await db.insert(hotels).values(hotel).returning();
+    return result[0];
+  }
+
+  async updateHotel(id: string, hotel: Partial<InsertHotel>): Promise<Hotel | undefined> {
+    const result = await db.update(hotels).set(hotel).where(eq(hotels.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteHotel(id: string): Promise<boolean> {
+    const result = await db.delete(hotels).where(eq(hotels.id, id)).returning();
     return result.length > 0;
   }
 

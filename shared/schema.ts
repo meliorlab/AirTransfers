@@ -43,6 +43,24 @@ export const insertDriverSchema = createInsertSchema(drivers).omit({
 export type InsertDriver = z.infer<typeof insertDriverSchema>;
 export type Driver = typeof drivers.$inferSelect;
 
+// Hotels
+export const hotels = pgTable("hotels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  address: text("address"),
+  zone: text("zone"), // e.g., "North", "South", "Rodney Bay"
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertHotelSchema = createInsertSchema(hotels).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertHotel = z.infer<typeof insertHotelSchema>;
+export type Hotel = typeof hotels.$inferSelect;
+
 // Zones
 export const zones = pgTable("zones", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -113,6 +131,9 @@ export const bookings = pgTable("bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   referenceNumber: text("reference_number").notNull().unique(),
   
+  // Booking type: "hotel" or "destination"
+  bookingType: text("booking_type").notNull().default("hotel"),
+  
   // Customer info
   customerName: text("customer_name").notNull(),
   customerEmail: text("customer_email").notNull(),
@@ -122,6 +143,8 @@ export const bookings = pgTable("bookings", {
   pickupLocation: text("pickup_location").notNull(),
   dropoffLocation: text("dropoff_location").notNull(),
   accommodation: text("accommodation"),
+  hotelId: varchar("hotel_id").references(() => hotels.id), // For hotel tab
+  destinationLink: text("destination_link"), // For destination link tab (Airbnb/Google Maps)
   pickupDate: timestamp("pickup_date").notNull(),
   partySize: integer("party_size").notNull(),
   
@@ -155,6 +178,10 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   updatedAt: true,
 }).partial({
   referenceNumber: true,
+  bookingType: true,
+  hotelId: true,
+  destinationLink: true,
+  accommodation: true,
   status: true,
   bookingFee: true,
   driverFee: true,

@@ -392,8 +392,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public booking creation endpoint (for customer form)
   app.post("/api/bookings", async (req: Request, res: Response) => {
     try {
+      // Convert pickupDate string to Date object
+      const pickupDate = req.body.pickupDate ? new Date(req.body.pickupDate) : undefined;
+      
       const bookingData = {
         ...req.body,
+        pickupDate,
         referenceNumber: generateReferenceNumber(),
         status: "new",
         bookingFee: "30.00",

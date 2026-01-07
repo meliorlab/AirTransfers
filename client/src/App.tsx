@@ -8,6 +8,7 @@ import AdminLogin from "@/pages/AdminLogin";
 import AdminBookings from "@/pages/AdminBookings";
 import AdminBookingDetail from "@/pages/AdminBookingDetail";
 import AdminDrivers from "@/pages/AdminDrivers";
+import AdminHotels from "@/pages/AdminHotels";
 import AdminZones from "@/pages/AdminZones";
 import AdminRates from "@/pages/AdminRates";
 import AdminPricingRules from "@/pages/AdminPricingRules";
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/admin/bookings" component={AdminBookings} />
       <Route path="/admin/bookings/:id" component={AdminBookingDetail} />
       <Route path="/admin/drivers" component={AdminDrivers} />
+      <Route path="/admin/hotels" component={AdminHotels} />
       <Route path="/admin/zones" component={AdminZones} />
       <Route path="/admin/rates" component={AdminRates} />
       <Route path="/admin/pricing-rules" component={AdminPricingRules} />

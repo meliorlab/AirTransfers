@@ -19,6 +19,7 @@ import {
   DollarSign, 
   Tag, 
   Users, 
+  Building2,
   LogOut 
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -27,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 const menuItems = [
   { title: "Bookings", url: "/admin/bookings", icon: BookOpen },
   { title: "Drivers", url: "/admin/drivers", icon: Users },
+  { title: "Hotels", url: "/admin/hotels", icon: Building2 },
   { title: "Zones", url: "/admin/zones", icon: MapPin },
   { title: "Rates", url: "/admin/rates", icon: DollarSign },
   { title: "Pricing Rules", url: "/admin/pricing-rules", icon: Tag },
@@ -43,9 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/admin/logout", {
-        method: "POST",
-      });
+      return await apiRequest("POST", "/api/admin/logout");
     },
     onSuccess: () => {
       queryClient.clear();

@@ -61,10 +61,18 @@ Preferred communication style: Simple, everyday language.
 **Schema Design:**
 - Admin users table with bcrypt-hashed passwords
 - Drivers table with contact info, vehicle details, and active status
-- Zones table for service area definitions
+- Zones table for 17 St. Lucia service zones (seeded on first run)
+- Zone routes table for zone-to-zone pricing with unique constraint on origin/destination pairs
+- Hotels table with zoneId foreign key linking to zones
 - Rates table for base pricing by vehicle class and party size
 - Pricing rules table for dynamic pricing adjustments
 - Bookings table with comprehensive trip details and status tracking
+
+**Zone Management:**
+- 17 St. Lucia zones: Gros Islet, Babonneau, Castries (North/East/Central/South/South East), Anse-La-Raye/Canaries, Soufriere, Choiseul, Laborie, Vieux-Fort (South/North), Micoud (South/North), Dennery (South/North)
+- Zone-to-zone pricing: Admin selects origin zone, then sets prices to each destination zone
+- Pricing uses upsert logic to update existing routes or create new ones
+- Unique database constraint prevents duplicate zone route entries
 
 **Data Models:**
 - Zod schemas for runtime validation

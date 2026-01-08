@@ -48,7 +48,8 @@ export const hotels = pgTable("hotels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   address: text("address"),
-  zone: text("zone"), // e.g., "North", "South", "Rodney Bay"
+  zone: text("zone"), // Legacy field - deprecated in favor of zoneId
+  zoneId: varchar("zone_id").references(() => zones.id),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -64,7 +65,7 @@ export type Hotel = typeof hotels.$inferSelect;
 // Zones
 export const zones = pgTable("zones", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   description: text("description"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -77,6 +78,24 @@ export const insertZoneSchema = createInsertSchema(zones).omit({
 
 export type InsertZone = z.infer<typeof insertZoneSchema>;
 export type Zone = typeof zones.$inferSelect;
+
+// Zone Routes (zone-to-zone pricing)
+export const zoneRoutes = pgTable("zone_routes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  originZoneId: varchar("origin_zone_id").notNull().references(() => zones.id, { onDelete: "cascade" }),
+  destinationZoneId: varchar("destination_zone_id").notNull().references(() => zones.id, { onDelete: "cascade" }),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertZoneRouteSchema = createInsertSchema(zoneRoutes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertZoneRoute = z.infer<typeof insertZoneRouteSchema>;
+export type ZoneRoute = typeof zoneRoutes.$inferSelect;
 
 // Rates (base rates by vehicle class and party size)
 export const rates = pgTable("rates", {

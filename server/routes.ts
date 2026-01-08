@@ -5,6 +5,7 @@ import {
   insertDriverSchema,
   insertHotelSchema,
   insertZoneSchema,
+  insertZoneRouteSchema,
   insertRateSchema,
   insertPricingRuleSchema,
   insertBookingSchema,
@@ -248,6 +249,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const success = await storage.deleteZone(req.params.id);
     if (!success) {
       return res.status(404).json({ error: "Zone not found" });
+    }
+    res.json({ success: true });
+  });
+
+  // Public Zones API (for booking form and hotel assignment)
+  app.get("/api/zones", async (req: Request, res: Response) => {
+    const zones = await storage.getActiveZones();
+    res.json(zones);
+  });
+
+  // Seed St. Lucia zones
+  app.post("/api/admin/zones/seed", requireAdmin, async (req: Request, res: Response) => {
+    const stLuciaZones = [
+      "Gros Islet",
+      "Babonneau",
+      "Castries North",
+      "Castries East",
+      "Castries Central",
+      "Castries South",
+      "Anse-La-Raye/Canaries",
+      "Soufriere",
+      "Choiseul",
+      "Laborie",
+      "Vieux-Fort South",
+      "Vieux-Fort North",
+      "Micoud South",
+      "Micoud North",
+      "Dennery South",
+      "Dennery North",
+      "Castries South East",
+    ];
+
+    const createdZones = [];
+    const skippedZones = [];
+
+    for (const zoneName of stLuciaZones) {
+      const existing = await storage.getZoneByName(zoneName);
+      if (existing) {
+        skippedZones.push(zoneName);
+        continue;
+      }
+      const zone = await storage.createZone({ name: zoneName, isActive: true });
+      createdZones.push(zone);
+    }
+
+    res.json({ 
+      success: true, 
+      created: createdZones.length, 
+      skipped: skippedZones.length,
+      message: `Created ${createdZones.length} zones, skipped ${skippedZones.length} existing zones` 
+    });
+  });
+
+  // Zone Routes API (zone-to-zone pricing)
+  app.get("/api/admin/zone-routes", requireAdmin, async (req: Request, res: Response) => {
+    const routes = await storage.getAllZoneRoutes();
+    res.json(routes);
+  });
+
+  app.get("/api/admin/zone-routes/:id", requireAdmin, async (req: Request, res: Response) => {
+    const route = await storage.getZoneRouteById(req.params.id);
+    if (!route) {
+      return res.status(404).json({ error: "Zone route not found" });
+    }
+    res.json(route);
+  });
+
+  app.post("/api/admin/zone-routes", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const data = insertZoneRouteSchema.parse(req.body);
+      const route = await storage.upsertZoneRoute(data);
+      res.json(route);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid zone route data" });
+    }
+  });
+
+  app.patch("/api/admin/zone-routes/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const route = await storage.updateZoneRoute(req.params.id, req.body);
+      if (!route) {
+        return res.status(404).json({ error: "Zone route not found" });
+      }
+      res.json(route);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid zone route data" });
+    }
+  });
+
+  app.delete("/api/admin/zone-routes/:id", requireAdmin, async (req: Request, res: Response) => {
+    const success = await storage.deleteZoneRoute(req.params.id);
+    if (!success) {
+      return res.status(404).json({ error: "Zone route not found" });
     }
     res.json({ success: true });
   });

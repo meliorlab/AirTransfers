@@ -8,6 +8,8 @@ import {
   type InsertHotel,
   type Zone,
   type InsertZone,
+  type ZoneRoute,
+  type InsertZoneRoute,
   type Rate,
   type InsertRate,
   type PricingRule,
@@ -18,6 +20,7 @@ import {
   drivers,
   hotels,
   zones,
+  zoneRoutes,
   rates,
   pricingRules,
   bookings,
@@ -47,10 +50,21 @@ export interface IStorage {
   
   // Zones
   getAllZones(): Promise<Zone[]>;
+  getActiveZones(): Promise<Zone[]>;
   getZone(id: string): Promise<Zone | undefined>;
+  getZoneByName(name: string): Promise<Zone | undefined>;
   createZone(zone: InsertZone): Promise<Zone>;
   updateZone(id: string, zone: Partial<InsertZone>): Promise<Zone | undefined>;
   deleteZone(id: string): Promise<boolean>;
+  
+  // Zone Routes
+  getAllZoneRoutes(): Promise<ZoneRoute[]>;
+  getZoneRoute(originZoneId: string, destinationZoneId: string): Promise<ZoneRoute | undefined>;
+  getZoneRouteById(id: string): Promise<ZoneRoute | undefined>;
+  createZoneRoute(route: InsertZoneRoute): Promise<ZoneRoute>;
+  updateZoneRoute(id: string, route: Partial<InsertZoneRoute>): Promise<ZoneRoute | undefined>;
+  upsertZoneRoute(route: InsertZoneRoute): Promise<ZoneRoute>;
+  deleteZoneRoute(id: string): Promise<boolean>;
   
   // Rates
   getAllRates(): Promise<Rate[]>;
@@ -152,11 +166,20 @@ export class DbStorage implements IStorage {
 
   // Zones
   async getAllZones(): Promise<Zone[]> {
-    return await db.select().from(zones).orderBy(desc(zones.createdAt));
+    return await db.select().from(zones).orderBy(zones.name);
+  }
+
+  async getActiveZones(): Promise<Zone[]> {
+    return await db.select().from(zones).where(eq(zones.isActive, true)).orderBy(zones.name);
   }
 
   async getZone(id: string): Promise<Zone | undefined> {
     const result = await db.select().from(zones).where(eq(zones.id, id));
+    return result[0];
+  }
+
+  async getZoneByName(name: string): Promise<Zone | undefined> {
+    const result = await db.select().from(zones).where(eq(zones.name, name));
     return result[0];
   }
 
@@ -172,6 +195,50 @@ export class DbStorage implements IStorage {
 
   async deleteZone(id: string): Promise<boolean> {
     const result = await db.delete(zones).where(eq(zones.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Zone Routes
+  async getAllZoneRoutes(): Promise<ZoneRoute[]> {
+    return await db.select().from(zoneRoutes).orderBy(desc(zoneRoutes.createdAt));
+  }
+
+  async getZoneRoute(originZoneId: string, destinationZoneId: string): Promise<ZoneRoute | undefined> {
+    const result = await db.select().from(zoneRoutes).where(
+      and(
+        eq(zoneRoutes.originZoneId, originZoneId),
+        eq(zoneRoutes.destinationZoneId, destinationZoneId)
+      )
+    );
+    return result[0];
+  }
+
+  async getZoneRouteById(id: string): Promise<ZoneRoute | undefined> {
+    const result = await db.select().from(zoneRoutes).where(eq(zoneRoutes.id, id));
+    return result[0];
+  }
+
+  async createZoneRoute(route: InsertZoneRoute): Promise<ZoneRoute> {
+    const result = await db.insert(zoneRoutes).values(route).returning();
+    return result[0];
+  }
+
+  async updateZoneRoute(id: string, route: Partial<InsertZoneRoute>): Promise<ZoneRoute | undefined> {
+    const result = await db.update(zoneRoutes).set(route).where(eq(zoneRoutes.id, id)).returning();
+    return result[0];
+  }
+
+  async upsertZoneRoute(route: InsertZoneRoute): Promise<ZoneRoute> {
+    const existing = await this.getZoneRoute(route.originZoneId, route.destinationZoneId);
+    if (existing) {
+      const updated = await this.updateZoneRoute(existing.id, route);
+      return updated!;
+    }
+    return await this.createZoneRoute(route);
+  }
+
+  async deleteZoneRoute(id: string): Promise<boolean> {
+    const result = await db.delete(zoneRoutes).where(eq(zoneRoutes.id, id)).returning();
     return result.length > 0;
   }
 

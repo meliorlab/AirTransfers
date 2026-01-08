@@ -66,20 +66,21 @@ export default function AdminBookings() {
   
   const [bookingFee, setBookingFee] = useState("");
   const [driverFee, setDriverFee] = useState("");
-  const [totalAmount, setTotalAmount] = useState("");
-  const [balanceDueToDriver, setBalanceDueToDriver] = useState("");
+  
+  const calculatedTotal = (parseFloat(bookingFee) || 0) + (parseFloat(driverFee) || 0);
 
   const { data: bookings, isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/admin/bookings", { status: statusFilter, search: searchQuery }],
   });
 
   const pricingMutation = useMutation({
-    mutationFn: async (data: { id: string; bookingFee: string; driverFee: string; totalAmount: string; balanceDueToDriver: string }) => {
+    mutationFn: async (data: { id: string; bookingFee: string; driverFee: string }) => {
+      const total = (parseFloat(data.bookingFee) || 0) + (parseFloat(data.driverFee) || 0);
       const response = await apiRequest("PATCH", `/api/admin/bookings/${data.id}/pricing`, {
         bookingFee: data.bookingFee,
         driverFee: data.driverFee,
-        totalAmount: data.totalAmount,
-        balanceDueToDriver: data.balanceDueToDriver,
+        totalAmount: total.toFixed(2),
+        balanceDueToDriver: data.driverFee,
       });
       return response.json();
     },
@@ -122,8 +123,6 @@ export default function AdminBookings() {
     setSelectedBooking(booking);
     setBookingFee(booking.bookingFee || "");
     setDriverFee(booking.driverFee || "");
-    setTotalAmount(booking.totalAmount || "");
-    setBalanceDueToDriver(booking.balanceDueToDriver || "");
     setPricingDialogOpen(true);
   };
 
@@ -133,8 +132,6 @@ export default function AdminBookings() {
       id: selectedBooking.id,
       bookingFee,
       driverFee,
-      totalAmount,
-      balanceDueToDriver,
     });
   };
 
@@ -377,33 +374,16 @@ export default function AdminBookings() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="totalAmount">Total Amount ($)</Label>
-                  <Input
-                    id="totalAmount"
-                    data-testid="input-total-amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={totalAmount}
-                    onChange={(e) => setTotalAmount(e.target.value)}
-                    placeholder="60.00"
-                  />
+              <div className="bg-primary/10 rounded-md p-4 border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Total Price</span>
+                  <span className="text-2xl font-bold text-primary" data-testid="text-calculated-total">
+                    ${calculatedTotal.toFixed(2)}
+                  </span>
                 </div>
-                <div>
-                  <Label htmlFor="balanceDueToDriver">Balance to Driver ($)</Label>
-                  <Input
-                    id="balanceDueToDriver"
-                    data-testid="input-balance-driver"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={balanceDueToDriver}
-                    onChange={(e) => setBalanceDueToDriver(e.target.value)}
-                    placeholder="30.00"
-                  />
-                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Booking Fee + Driver Fee = Total
+                </p>
               </div>
             </div>
           )}
@@ -414,10 +394,10 @@ export default function AdminBookings() {
             </Button>
             <Button 
               onClick={handlePricingSubmit}
-              disabled={pricingMutation.isPending || bookingFee === "" || driverFee === "" || totalAmount === "" || balanceDueToDriver === ""}
+              disabled={pricingMutation.isPending || bookingFee === "" || driverFee === ""}
               data-testid="button-save-pricing"
             >
-              {pricingMutation.isPending ? "Saving..." : "Save Pricing"}
+              {pricingMutation.isPending ? "Confirming..." : "Confirm Price"}
             </Button>
           </DialogFooter>
         </DialogContent>

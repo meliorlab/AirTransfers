@@ -21,6 +21,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -32,7 +39,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Hotel, InsertHotel } from "@shared/schema";
+import type { Hotel, InsertHotel, Zone } from "@shared/schema";
 
 export default function AdminHotels() {
   const { toast } = useToast();
@@ -42,12 +49,16 @@ export default function AdminHotels() {
   const [formData, setFormData] = useState<Partial<InsertHotel>>({
     name: "",
     address: "",
-    zone: "",
+    zoneId: "",
     isActive: true,
   });
 
   const { data: hotels, isLoading } = useQuery<Hotel[]>({
     queryKey: ["/api/admin/hotels"],
+  });
+
+  const { data: zones } = useQuery<Zone[]>({
+    queryKey: ["/api/zones"],
   });
 
   const createMutation = useMutation({
@@ -100,7 +111,7 @@ export default function AdminHotels() {
     setFormData({
       name: "",
       address: "",
-      zone: "",
+      zoneId: "",
       isActive: true,
     });
     setEditingHotel(null);
@@ -129,10 +140,16 @@ export default function AdminHotels() {
     setFormData({
       name: hotel.name,
       address: hotel.address || "",
-      zone: hotel.zone || "",
+      zoneId: hotel.zoneId || "",
       isActive: hotel.isActive,
     });
     setIsDialogOpen(true);
+  };
+
+  const getZoneName = (zoneId: string | null) => {
+    if (!zoneId || !zones) return null;
+    const zone = zones.find((z) => z.id === zoneId);
+    return zone?.name || null;
   };
 
   return (
@@ -185,14 +202,22 @@ export default function AdminHotels() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="zone">Zone</Label>
-                  <Input
-                    id="zone"
-                    data-testid="input-hotel-zone"
-                    value={formData.zone || ""}
-                    onChange={(e) => setFormData({ ...formData, zone: e.target.value })}
-                    placeholder="North, South, Rodney Bay, etc."
-                  />
+                  <Label htmlFor="zone">Zone <span className="text-destructive">*</span></Label>
+                  <Select
+                    value={formData.zoneId || ""}
+                    onValueChange={(value) => setFormData({ ...formData, zoneId: value })}
+                  >
+                    <SelectTrigger id="zone" data-testid="select-hotel-zone">
+                      <SelectValue placeholder="Select a zone..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {zones?.map((zone) => (
+                        <SelectItem key={zone.id} value={zone.id}>
+                          {zone.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div className="flex items-center justify-between border rounded-md p-3">
@@ -252,44 +277,47 @@ export default function AdminHotels() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {hotels.map((hotel) => (
-                    <TableRow key={hotel.id} data-testid={`row-hotel-${hotel.id}`}>
-                      <TableCell className="font-medium">{hotel.name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {hotel.address || "-"}
-                      </TableCell>
-                      <TableCell>
-                        {hotel.zone ? (
-                          <Badge variant="outline">{hotel.zone}</Badge>
-                        ) : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={hotel.isActive ? "default" : "secondary"}>
-                          {hotel.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            data-testid={`button-edit-${hotel.id}`}
-                            onClick={() => handleEdit(hotel)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            data-testid={`button-delete-${hotel.id}`}
-                            onClick={() => deleteMutation.mutate(hotel.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {hotels.map((hotel) => {
+                    const zoneName = getZoneName(hotel.zoneId);
+                    return (
+                      <TableRow key={hotel.id} data-testid={`row-hotel-${hotel.id}`}>
+                        <TableCell className="font-medium">{hotel.name}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {hotel.address || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {zoneName ? (
+                            <Badge variant="outline">{zoneName}</Badge>
+                          ) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={hotel.isActive ? "default" : "secondary"}>
+                            {hotel.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              data-testid={`button-edit-${hotel.id}`}
+                              onClick={() => handleEdit(hotel)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              data-testid={`button-delete-${hotel.id}`}
+                              onClick={() => deleteMutation.mutate(hotel.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

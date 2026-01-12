@@ -133,3 +133,34 @@ Preferred communication style: Simple, everyday language.
 
 **Session Management:**
 - connect-pg-simple for PostgreSQL session store (configured but implementation details in server routes)
+
+### Payment Processing (Stripe)
+
+**Integration:**
+- Stripe sandbox environment via Replit connector (stripe-replit-sync)
+- Payment links created dynamically for each booking
+- Webhook processing for payment status updates
+
+**Payment Flows:**
+- Hotel bookings: Fixed $30 booking fee, payment link sent after booking
+- Destination bookings: Custom quote set by admin, payment link sent after pricing confirmed
+- Idempotency: Payment links check paymentLinkSent flag (use force=true to resend)
+
+**Key Files:**
+- `server/stripeClient.ts`: Stripe client and webhook sync initialization
+- `server/webhookHandlers.ts`: Stripe webhook event handlers
+
+### Email Notifications (Resend)
+
+**Integration:**
+- Resend API via Replit connector
+- HTML email templates for all workflows
+
+**Email Workflows:**
+1. **Booking Confirmation**: Sent when customer completes booking form
+2. **Quote Notification**: Sent when admin sets pricing for destination bookings (idempotent - only first time)
+3. **Payment Link**: Sent when admin triggers payment link (includes Stripe payment URL)
+
+**Key Files:**
+- `server/resendClient.ts`: Resend API client
+- `server/emailService.ts`: Email template generation and sending functions

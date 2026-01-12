@@ -14,6 +14,8 @@ import bcrypt from "bcrypt";
 import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import { getUncachableStripeClient } from "./stripeClient";
+import { emailService } from "./emailService";
 
 // Helper to generate unique reference numbers
 function generateReferenceNumber(): string {
@@ -519,16 +521,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!booking.pricingSet) {
         return res.status(400).json({ error: "Pricing must be set before sending payment link" });
       }
+
+      const totalAmountCents = Math.round(parseFloat(booking.totalAmount || "0") * 100);
       
-      // Mark payment link as sent
+      const stripe = await getUncachableStripeClient();
+      
+      const paymentLink = await stripe.paymentLinks.create({
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Airport Transfer - ${booking.referenceNumber}`,
+                description: `Transfer from ${booking.pickupLocation} to ${booking.dropoffLocation}`,
+              },
+              unit_amount: totalAmountCents,
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          bookingId: booking.id,
+          referenceNumber: booking.referenceNumber,
+        },
+      });
+
+      try {
+        await emailService.sendPaymentLink({
+          customerEmail: booking.customerEmail,
+          customerName: booking.customerName,
+          referenceNumber: booking.referenceNumber,
+          totalAmount: booking.totalAmount || "0",
+          paymentLink: paymentLink.url,
+        });
+      } catch (emailError) {
+        console.error("Email sending failed:", emailError);
+      }
+      
       const updatedBooking = await storage.markPaymentLinkSent(req.params.id);
-      
-      // In production, this would send an actual email with Stripe payment link
-      // For now, we just mark it as sent
       
       res.json({ 
         booking: updatedBooking,
-        message: `Payment link would be sent to ${booking.customerEmail}. Total amount: $${booking.totalAmount}` 
+        paymentLink: paymentLink.url,
+        message: `Payment link sent to ${booking.customerEmail}. Total amount: $${booking.totalAmount}` 
       });
     } catch (error) {
       console.error("Error sending payment link:", error);

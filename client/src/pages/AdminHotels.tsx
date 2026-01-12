@@ -36,15 +36,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, DollarSign } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Hotel, InsertHotel, Zone } from "@shared/schema";
+import type { Hotel, InsertHotel, Zone, Port } from "@shared/schema";
+
+interface PortWithRate extends Port {
+  price: string | null;
+}
 
 export default function AdminHotels() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
+  const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false);
+  const [pricingHotel, setPricingHotel] = useState<Hotel | null>(null);
+  const [portRates, setPortRates] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState<Partial<InsertHotel>>({
     name: "",
@@ -59,6 +66,11 @@ export default function AdminHotels() {
 
   const { data: zones } = useQuery<Zone[]>({
     queryKey: ["/api/zones"],
+  });
+
+  const { data: portsWithRates, isLoading: isLoadingPorts } = useQuery<PortWithRate[]>({
+    queryKey: ["/api/admin/hotels", pricingHotel?.id, "port-rates"],
+    enabled: !!pricingHotel,
   });
 
   const createMutation = useMutation({
@@ -106,6 +118,39 @@ export default function AdminHotels() {
       toast({ title: "Failed to delete hotel", variant: "destructive" });
     },
   });
+
+  const savePortRatesMutation = useMutation({
+    mutationFn: async ({ hotelId, rates }: { hotelId: string; rates: { portId: string; price: string }[] }) => {
+      const response = await apiRequest("POST", `/api/admin/hotels/${hotelId}/port-rates`, { rates });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/hotels", pricingHotel?.id, "port-rates"] });
+      toast({ title: "Port prices saved successfully" });
+      setIsPricingDialogOpen(false);
+      setPricingHotel(null);
+      setPortRates({});
+    },
+    onError: () => {
+      toast({ title: "Failed to save port prices", variant: "destructive" });
+    },
+  });
+
+  const handleOpenPricing = (hotel: Hotel) => {
+    setPricingHotel(hotel);
+    setPortRates({});
+    setIsPricingDialogOpen(true);
+  };
+
+  const handleSavePortRates = () => {
+    if (!pricingHotel) return;
+    
+    const rates = Object.entries(portRates)
+      .filter(([_, price]) => price !== "" && price !== null)
+      .map(([portId, price]) => ({ portId, price }));
+    
+    savePortRatesMutation.mutate({ hotelId: pricingHotel.id, rates });
+  };
 
   const resetForm = () => {
     setFormData({
@@ -300,6 +345,15 @@ export default function AdminHotels() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              data-testid={`button-pricing-${hotel.id}`}
+                              onClick={() => handleOpenPricing(hotel)}
+                              title="Set port prices"
+                            >
+                              <DollarSign className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               data-testid={`button-edit-${hotel.id}`}
                               onClick={() => handleEdit(hotel)}
                             >
@@ -323,6 +377,59 @@ export default function AdminHotels() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={isPricingDialogOpen} onOpenChange={(open) => {
+          setIsPricingDialogOpen(open);
+          if (!open) {
+            setPricingHotel(null);
+            setPortRates({});
+          }
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Port Pricing</DialogTitle>
+              <DialogDescription>
+                Set transfer prices from each port to {pricingHotel?.name}
+              </DialogDescription>
+            </DialogHeader>
+            {isLoadingPorts ? (
+              <div className="text-center py-4 text-muted-foreground">Loading ports...</div>
+            ) : (
+              <div className="space-y-4">
+                {portsWithRates?.map((port) => (
+                  <div key={port.id} className="space-y-2">
+                    <Label htmlFor={`port-${port.id}`} className="flex items-center justify-between">
+                      <span>{port.name}</span>
+                      <Badge variant="outline" className="text-xs">{port.code}</Badge>
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                      <Input
+                        id={`port-${port.id}`}
+                        data-testid={`input-port-price-${port.code}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder={port.price || "Not set"}
+                        value={portRates[port.id] ?? (port.price || "")}
+                        onChange={(e) => setPortRates({ ...portRates, [port.id]: e.target.value })}
+                        className="pl-7"
+                      />
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  className="w-full"
+                  data-testid="button-save-port-rates"
+                  onClick={handleSavePortRates}
+                  disabled={savePortRatesMutation.isPending}
+                >
+                  {savePortRatesMutation.isPending ? "Saving..." : "Save Port Prices"}
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

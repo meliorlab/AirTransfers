@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Users, Plane, Check, Link as LinkIcon, Building2, Mail } from "lucide-react";
+import { Calendar, MapPin, Users, Plane, Check, Link as LinkIcon, Building2, Mail, Ship } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import heroImage from "@assets/generated_images/Airport_professional_greeting_scene_d42210f5.png";
-import type { Hotel } from "@shared/schema";
+import type { Hotel, Port } from "@shared/schema";
 
 export default function HeroSection() {
   const { toast } = useToast();
@@ -31,6 +31,7 @@ export default function HeroSection() {
   const [partySize, setPartySize] = useState("1");
   const [flightNumber, setFlightNumber] = useState("");
   const [vehicleClass, setVehicleClass] = useState("");
+  const [selectedPort, setSelectedPort] = useState("");
   
   // Hotel tab specific
   const [selectedHotel, setSelectedHotel] = useState("");
@@ -43,12 +44,14 @@ export default function HeroSection() {
     queryKey: ["/api/hotels"],
   });
 
+  // Fetch ports for dropdown
+  const { data: ports } = useQuery<Port[]>({
+    queryKey: ["/api/ports"],
+  });
+
   const getPickupLocation = () => {
-    if (activeTab === "hotel") {
-      const hotel = hotels?.find(h => h.id === selectedHotel);
-      return hotel?.name || "Airport";
-    }
-    return "Airport";
+    const port = ports?.find(p => p.id === selectedPort);
+    return port?.name || "Airport";
   };
 
   const getDropoffLocation = () => {
@@ -68,10 +71,11 @@ export default function HeroSection() {
         customerName: fullName,
         customerEmail: email,
         customerPhone: contactNumber,
-        pickupLocation: "Hewanorra International Airport (UVF)",
+        pickupLocation: getPickupLocation(),
         dropoffLocation: getDropoffLocation(),
         hotelId: activeTab === "hotel" ? selectedHotel : null,
         destinationLink: activeTab === "destination" ? destinationLink : null,
+        arrivalPortId: selectedPort || null,
         pickupDate: pickupDateTime.toISOString(),
         partySize: parseInt(partySize),
         flightNumber,
@@ -105,11 +109,20 @@ export default function HeroSection() {
     setPartySize("1");
     setFlightNumber("");
     setVehicleClass("");
+    setSelectedPort("");
     setSelectedHotel("");
     setDestinationLink("");
   };
 
   const validateStep1 = () => {
+    if (!selectedPort) {
+      toast({
+        title: "Arrival port required",
+        description: "Please select your port of arrival.",
+        variant: "destructive",
+      });
+      return false;
+    }
     if (activeTab === "hotel" && !selectedHotel) {
       toast({
         title: "Hotel required",
@@ -279,6 +292,30 @@ export default function HeroSection() {
                   </Tabs>
 
                   <div className="space-y-4">
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        Port of Arrival <span className="text-destructive">*</span>
+                      </Label>
+                      <Select value={selectedPort} onValueChange={setSelectedPort}>
+                        <SelectTrigger data-testid="select-port" className="h-12">
+                          <Ship className="w-4 h-4 mr-2 text-muted-foreground" />
+                          <SelectValue placeholder="Select airport or ferry terminal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ports?.map((port) => (
+                            <SelectItem key={port.id} value={port.id}>
+                              {port.name} ({port.code})
+                            </SelectItem>
+                          ))}
+                          {(!ports || ports.length === 0) && (
+                            <SelectItem value="no-ports" disabled>
+                              No ports available
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="date" className="text-sm font-medium mb-1.5 block">
@@ -503,7 +540,7 @@ export default function HeroSection() {
                       <div className="flex items-start gap-2">
                         <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                         <span className="text-sm text-foreground">
-                          <strong>Pickup:</strong> Hewanorra International Airport
+                          <strong>Pickup:</strong> {getPickupLocation()}
                         </span>
                       </div>
                       <div className="flex items-start gap-2">

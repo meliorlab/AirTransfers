@@ -72,9 +72,10 @@ export default function AdminBookingDetail() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
       toast({
         title: "Driver assigned",
-        description: "Driver has been successfully assigned to this booking",
+        description: "Driver has been successfully assigned and notified via email",
       });
       setIsDialogOpen(false);
+      setSelectedDriverId("");
     },
     onError: () => {
       toast({
@@ -251,7 +252,7 @@ export default function AdminBookingDetail() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {assignedDriver ? (
+            {assignedDriver && (
               <div className="p-4 border rounded-md">
                 <div className="flex items-center gap-4">
                   {assignedDriver.driverPhotoUrl && (
@@ -278,46 +279,49 @@ export default function AdminBookingDetail() {
                   </div>
                 )}
               </div>
-            ) : (
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button data-testid="button-assign-driver">Assign Driver</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Assign Driver</DialogTitle>
-                    <DialogDescription>
-                      Select a driver for this booking. Emails will be sent to the customer, driver, and admin.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Select Driver</label>
-                      <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-                        <SelectTrigger data-testid="select-driver">
-                          <SelectValue placeholder="Choose a driver" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {drivers?.filter(d => d.isActive).map((driver) => (
-                            <SelectItem key={driver.id} value={driver.id}>
-                              {driver.name} - {driver.vehicleDetails || "No vehicle info"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      className="w-full"
-                      data-testid="button-confirm-assign"
-                      onClick={() => selectedDriverId && assignDriverMutation.mutate(selectedDriverId)}
-                      disabled={!selectedDriverId || assignDriverMutation.isPending}
-                    >
-                      {assignDriverMutation.isPending ? "Assigning..." : "Confirm Assignment"}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
             )}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-assign-driver" variant={assignedDriver ? "outline" : "default"}>
+                  {assignedDriver ? "Change Driver" : "Assign Driver"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{assignedDriver ? "Change Driver" : "Assign Driver"}</DialogTitle>
+                  <DialogDescription>
+                    {assignedDriver 
+                      ? "Select a new driver for this booking. The new driver will receive an email notification."
+                      : "Select a driver for this booking. The driver will receive an email notification."}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Select Driver</label>
+                    <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
+                      <SelectTrigger data-testid="select-driver">
+                        <SelectValue placeholder="Choose a driver" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {drivers?.filter(d => d.isActive && d.id !== assignedDriver?.id).map((driver) => (
+                          <SelectItem key={driver.id} value={driver.id}>
+                            {driver.name} - {driver.vehicleDetails || "No vehicle info"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    className="w-full"
+                    data-testid="button-confirm-assign"
+                    onClick={() => selectedDriverId && assignDriverMutation.mutate(selectedDriverId)}
+                    disabled={!selectedDriverId || assignDriverMutation.isPending}
+                  >
+                    {assignDriverMutation.isPending ? "Assigning..." : "Confirm Assignment"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
 

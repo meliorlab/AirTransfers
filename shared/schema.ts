@@ -164,6 +164,7 @@ export const bookings = pgTable("bookings", {
   accommodation: text("accommodation"),
   hotelId: varchar("hotel_id").references(() => hotels.id), // For hotel tab
   destinationLink: text("destination_link"), // For destination link tab (Airbnb/Google Maps)
+  arrivalPortId: varchar("arrival_port_id"), // Port of arrival (airport/ferry terminal)
   pickupDate: timestamp("pickup_date").notNull(),
   partySize: integer("party_size").notNull(),
   
@@ -204,6 +205,7 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   hotelId: true,
   destinationLink: true,
   accommodation: true,
+  arrivalPortId: true,
   status: true,
   bookingFee: true,
   driverFee: true,
@@ -218,6 +220,42 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
+
+// Ports (airports and ferry terminals)
+export const ports = pgTable("ports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(), // UVF, SLU, PORT_CASTRIES
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPortSchema = createInsertSchema(ports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPort = z.infer<typeof insertPortSchema>;
+export type Port = typeof ports.$inferSelect;
+
+// Port to Hotel Rates
+export const portHotelRates = pgTable("port_hotel_rates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portId: varchar("port_id").notNull().references(() => ports.id, { onDelete: "cascade" }),
+  hotelId: varchar("hotel_id").notNull().references(() => hotels.id, { onDelete: "cascade" }),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPortHotelRateSchema = createInsertSchema(portHotelRates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPortHotelRate = z.infer<typeof insertPortHotelRateSchema>;
+export type PortHotelRate = typeof portHotelRates.$inferSelect;
 
 // Keep legacy users table for backward compatibility
 export const users = pgTable("users", {

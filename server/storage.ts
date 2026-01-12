@@ -16,6 +16,10 @@ import {
   type InsertPricingRule,
   type Booking,
   type InsertBooking,
+  type Port,
+  type InsertPort,
+  type PortHotelRate,
+  type InsertPortHotelRate,
   adminUsers,
   drivers,
   hotels,
@@ -24,6 +28,8 @@ import {
   rates,
   pricingRules,
   bookings,
+  ports,
+  portHotelRates,
 } from "@shared/schema";
 import { eq, and, desc, or, like, sql } from "drizzle-orm";
 
@@ -91,6 +97,17 @@ export interface IStorage {
   updateBookingStatus(id: string, status: string): Promise<Booking | undefined>;
   updateBookingPricing(id: string, pricing: { bookingFee?: string; driverFee?: string; totalAmount?: string; balanceDueToDriver?: string; pricingSet?: boolean }): Promise<Booking | undefined>;
   markPaymentLinkSent(id: string): Promise<Booking | undefined>;
+  
+  // Ports
+  getAllPorts(): Promise<Port[]>;
+  getActivePorts(): Promise<Port[]>;
+  getPort(id: string): Promise<Port | undefined>;
+  getPortByCode(code: string): Promise<Port | undefined>;
+  
+  // Port-Hotel Rates
+  getPortHotelRates(hotelId: string): Promise<PortHotelRate[]>;
+  getPortHotelRate(portId: string, hotelId: string): Promise<PortHotelRate | undefined>;
+  upsertPortHotelRate(rate: InsertPortHotelRate): Promise<PortHotelRate>;
 }
 
 export class DbStorage implements IStorage {
@@ -389,6 +406,53 @@ export class DbStorage implements IStorage {
       })
       .where(eq(bookings.id, id))
       .returning();
+    return result[0];
+  }
+
+  // Ports
+  async getAllPorts(): Promise<Port[]> {
+    return await db.select().from(ports).orderBy(ports.name);
+  }
+
+  async getActivePorts(): Promise<Port[]> {
+    return await db.select().from(ports).where(eq(ports.isActive, true)).orderBy(ports.name);
+  }
+
+  async getPort(id: string): Promise<Port | undefined> {
+    const result = await db.select().from(ports).where(eq(ports.id, id));
+    return result[0];
+  }
+
+  async getPortByCode(code: string): Promise<Port | undefined> {
+    const result = await db.select().from(ports).where(eq(ports.code, code));
+    return result[0];
+  }
+
+  // Port-Hotel Rates
+  async getPortHotelRates(hotelId: string): Promise<PortHotelRate[]> {
+    return await db.select().from(portHotelRates).where(eq(portHotelRates.hotelId, hotelId));
+  }
+
+  async getPortHotelRate(portId: string, hotelId: string): Promise<PortHotelRate | undefined> {
+    const result = await db.select().from(portHotelRates).where(
+      and(
+        eq(portHotelRates.portId, portId),
+        eq(portHotelRates.hotelId, hotelId)
+      )
+    );
+    return result[0];
+  }
+
+  async upsertPortHotelRate(rate: InsertPortHotelRate): Promise<PortHotelRate> {
+    const existing = await this.getPortHotelRate(rate.portId, rate.hotelId);
+    if (existing) {
+      const result = await db.update(portHotelRates)
+        .set({ price: rate.price, isActive: rate.isActive })
+        .where(eq(portHotelRates.id, existing.id))
+        .returning();
+      return result[0];
+    }
+    const result = await db.insert(portHotelRates).values(rate).returning();
     return result[0];
   }
 }

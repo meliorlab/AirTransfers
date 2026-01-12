@@ -472,13 +472,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const driver = await storage.getDriver(driverId);
       
-      // Here we would send emails to guest, driver, and admin
-      // This will be implemented when email integration is set up
+      // Send email notification to the driver
+      if (driver && driver.email) {
+        try {
+          await emailService.sendDriverAssignment(
+            {
+              driverEmail: driver.email,
+              driverName: driver.name,
+            },
+            {
+              referenceNumber: booking.referenceNumber,
+              customerName: booking.customerName,
+              customerPhone: booking.customerPhone,
+              pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+              pickupLocation: booking.pickupLocation,
+              dropoffLocation: booking.dropoffLocation,
+              partySize: booking.partySize,
+              flightNumber: booking.flightNumber,
+              vehicleClass: booking.vehicleClass,
+              driverFee: booking.driverFee || "0",
+            }
+          );
+        } catch (emailError) {
+          console.error("Failed to send driver assignment email:", emailError);
+        }
+      }
       
       res.json({ 
         booking, 
         driver,
-        message: "Driver assigned successfully. Email notifications would be sent here." 
+        message: "Driver assigned successfully. Email notification sent to driver." 
       });
     } catch (error) {
       res.status(400).json({ error: "Failed to assign driver" });

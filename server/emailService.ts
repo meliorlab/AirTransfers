@@ -144,6 +144,113 @@ export class EmailService {
 
     return data;
   }
+
+  async sendPaymentConfirmation(booking: {
+    customerEmail: string;
+    customerName: string;
+    referenceNumber: string;
+    pickupDate: string;
+    pickupLocation: string;
+    dropoffLocation: string;
+    totalAmount: string;
+  }) {
+    const { client, fromEmail } = await getUncachableResendClient();
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: booking.customerEmail,
+      subject: `Payment Confirmed - Booking ${booking.referenceNumber}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #22c55e;">Payment Confirmed!</h1>
+          <p>Dear ${booking.customerName},</p>
+          <p>Thank you! Your payment has been successfully processed for your airport transfer.</p>
+          
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Reference Number:</strong> ${booking.referenceNumber}</p>
+            <p><strong>Pickup Date:</strong> ${booking.pickupDate}</p>
+            <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
+            <p><strong>Dropoff Location:</strong> ${booking.dropoffLocation}</p>
+            <p><strong>Amount Paid:</strong> $${booking.totalAmount}</p>
+          </div>
+          
+          <p>Your driver details will be sent to you closer to your pickup date.</p>
+          
+          <p>If you have any questions, please don't hesitate to contact us.</p>
+          <p>Best regards,<br>The AirTransfer Team</p>
+        </div>
+      `
+    });
+
+    if (error) {
+      console.error('Failed to send payment confirmation:', error);
+      throw error;
+    }
+
+    return data;
+  }
+
+  async sendDriverAssignment(driver: {
+    driverEmail: string;
+    driverName: string;
+  }, booking: {
+    referenceNumber: string;
+    customerName: string;
+    customerPhone: string;
+    pickupDate: string;
+    pickupLocation: string;
+    dropoffLocation: string;
+    partySize: number;
+    flightNumber: string;
+    vehicleClass: string;
+    driverFee: string;
+  }) {
+    const { client, fromEmail } = await getUncachableResendClient();
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: driver.driverEmail,
+      subject: `New Trip Assignment - ${booking.referenceNumber}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1a1a2e;">New Trip Assignment</h1>
+          <p>Dear ${driver.driverName},</p>
+          <p>You have been assigned a new transfer. Please review the details below:</p>
+          
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Trip Details</h3>
+            <p><strong>Reference Number:</strong> ${booking.referenceNumber}</p>
+            <p><strong>Pickup Date:</strong> ${booking.pickupDate}</p>
+            <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
+            <p><strong>Dropoff Location:</strong> ${booking.dropoffLocation}</p>
+            <p><strong>Flight Number:</strong> ${booking.flightNumber}</p>
+            <p><strong>Vehicle Class:</strong> ${booking.vehicleClass}</p>
+            <p><strong>Party Size:</strong> ${booking.partySize} passenger(s)</p>
+          </div>
+          
+          <div style="background: #e0f2fe; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Customer Information</h3>
+            <p><strong>Name:</strong> ${booking.customerName}</p>
+            <p><strong>Phone:</strong> ${booking.customerPhone}</p>
+          </div>
+          
+          <div style="background: #dcfce7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="font-size: 18px; margin: 0;"><strong>Your Fee:</strong> $${booking.driverFee}</p>
+          </div>
+          
+          <p>Please confirm your availability and contact the customer if needed.</p>
+          <p>Best regards,<br>The AirTransfer Team</p>
+        </div>
+      `
+    });
+
+    if (error) {
+      console.error('Failed to send driver assignment email:', error);
+      throw error;
+    }
+
+    return data;
+  }
 }
 
 export const emailService = new EmailService();

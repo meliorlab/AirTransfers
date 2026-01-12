@@ -490,6 +490,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { bookingFee, driverFee, totalAmount, balanceDueToDriver } = req.body;
       
+      // Get booking before update to check if this is first time setting pricing
+      const existingBooking = await storage.getBooking(req.params.id);
+      if (!existingBooking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      const isFirstPricingSet = !existingBooking.pricingSet;
+      
       const booking = await storage.updateBookingPricing(req.params.id, {
         bookingFee,
         driverFee,
@@ -500,6 +507,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Only send quote notification email when pricing is first set (idempotency)
+      if (isFirstPricingSet && booking.bookingType === "destination") {
+        try {
+          await emailService.sendQuoteNotification({
+            customerEmail: booking.customerEmail,
+            customerName: booking.customerName,
+            referenceNumber: booking.referenceNumber,
+            bookingFee: bookingFee || "0",
+            driverFee: driverFee || "0",
+            totalAmount: totalAmount || "0",
+          });
+        } catch (emailError) {
+          console.error("Failed to send quote notification email:", emailError);
+        }
       }
       
       res.json(booking);
@@ -520,6 +543,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!booking.pricingSet) {
         return res.status(400).json({ error: "Pricing must be set before sending payment link" });
+      }
+
+      // Check if payment link already sent (prevent duplicates unless force=true)
+      const force = req.body.force === true;
+      if (booking.paymentLinkSent && !force) {
+        return res.status(400).json({ 
+          error: "Payment link already sent. Set force=true to send again.",
+          paymentLinkSentAt: booking.paymentLinkSentAt
+        });
       }
 
       const totalAmountCents = Math.round(parseFloat(booking.totalAmount || "0") * 100);
@@ -594,6 +626,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const data = insertBookingSchema.parse(bookingData);
       const booking = await storage.createBooking(data);
+
+      // Send booking confirmation email
+      try {
+        await emailService.sendBookingConfirmation({
+          customerEmail: booking.customerEmail,
+          customerName: booking.customerName,
+          referenceNumber: booking.referenceNumber,
+          bookingType: booking.bookingType,
+          pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+          pickupTime: req.body.pickupTime || '',
+          pickupLocation: booking.pickupLocation,
+          dropoffLocation: booking.dropoffLocation,
+          passengers: booking.partySize,
+          totalAmount: booking.totalAmount || undefined,
+        });
+      } catch (emailError) {
+        console.error("Failed to send booking confirmation email:", emailError);
+      }
+
       res.json(booking);
     } catch (error) {
       console.error("Booking creation error:", error);

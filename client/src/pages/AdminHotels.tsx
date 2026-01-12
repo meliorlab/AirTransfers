@@ -69,7 +69,7 @@ export default function AdminHotels() {
   });
 
   const { data: portsWithRates, isLoading: isLoadingPorts } = useQuery<PortWithRate[]>({
-    queryKey: ["/api/admin/hotels", pricingHotel?.id, "port-rates"],
+    queryKey: [`/api/admin/hotels/${pricingHotel?.id}/port-rates`],
     enabled: !!pricingHotel,
   });
 
@@ -125,7 +125,7 @@ export default function AdminHotels() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/hotels", pricingHotel?.id, "port-rates"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/hotels/${pricingHotel?.id}/port-rates`] });
       toast({ title: "Port prices saved successfully" });
       setIsPricingDialogOpen(false);
       setPricingHotel(null);

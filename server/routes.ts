@@ -260,6 +260,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(ports);
   });
 
+  // Public port-hotel rate lookup (for booking form pricing display)
+  app.get("/api/port-hotel-rate", async (req: Request, res: Response) => {
+    const { portId, hotelId } = req.query;
+    
+    if (!portId || !hotelId || typeof portId !== 'string' || typeof hotelId !== 'string') {
+      return res.status(400).json({ error: "portId and hotelId are required" });
+    }
+    
+    const rate = await storage.getPortHotelRate(portId, hotelId);
+    res.json({ price: rate?.price || null });
+  });
+
   // Zones API
   app.get("/api/admin/zones", requireAdmin, async (req: Request, res: Response) => {
     const zones = await storage.getAllZones();

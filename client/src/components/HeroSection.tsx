@@ -49,6 +49,12 @@ export default function HeroSection() {
     queryKey: ["/api/ports"],
   });
 
+  // Fetch port-hotel rate for pricing display (hotel bookings only)
+  const { data: portHotelRate } = useQuery<{ price: string | null }>({
+    queryKey: [`/api/port-hotel-rate?portId=${selectedPort}&hotelId=${selectedHotel}`],
+    enabled: activeTab === "hotel" && !!selectedPort && !!selectedHotel,
+  });
+
   const getPickupLocation = () => {
     const port = ports?.find(p => p.id === selectedPort);
     return port?.name || "Airport";
@@ -508,12 +514,9 @@ export default function HeroSection() {
                         <h3 className="text-center text-lg font-semibold text-foreground mb-2">
                           Booking Fee
                         </h3>
-                        <div className="text-center text-5xl font-bold text-primary mb-4">
-                          $30
+                        <div className="text-center text-5xl font-bold text-primary mb-6">
+                          {portHotelRate?.price ? `$${portHotelRate.price}` : "Quote pending"}
                         </div>
-                        <p className="text-center text-sm text-muted-foreground mb-6">
-                          Driver Fee: $30 (Paid directly to driver)
-                        </p>
                       </>
                     ) : (
                       <>

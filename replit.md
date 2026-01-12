@@ -160,6 +160,8 @@ Preferred communication style: Simple, everyday language.
 1. **Booking Confirmation**: Sent when customer completes booking form
 2. **Quote Notification**: Sent when admin sets pricing for destination bookings (idempotent - only first time)
 3. **Payment Link**: Sent when admin triggers payment link (includes Stripe payment URL)
+4. **Payment Confirmation**: Sent when customer completes payment via Stripe (triggered by checkout.session.completed webhook)
+5. **Driver Assignment**: Sent to driver when admin assigns them to a booking (includes trip details, customer info, and driver fee)
 
 **Key Files:**
 - `server/resendClient.ts`: Resend API client

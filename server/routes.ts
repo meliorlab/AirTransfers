@@ -211,6 +211,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(hotels);
   });
 
+  // Port-Hotel Rates API (admin)
+  app.get("/api/admin/hotels/:id/port-rates", requireAdmin, async (req: Request, res: Response) => {
+    const ports = await storage.getActivePorts();
+    const rates = await storage.getPortHotelRates(req.params.id);
+    
+    const portsWithRates = ports.map(port => {
+      const rate = rates.find(r => r.portId === port.id);
+      return {
+        ...port,
+        price: rate?.price || null,
+      };
+    });
+    
+    res.json(portsWithRates);
+  });
+
+  app.post("/api/admin/hotels/:id/port-rates", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { rates } = req.body;
+      
+      if (!Array.isArray(rates)) {
+        return res.status(400).json({ error: "Rates must be an array" });
+      }
+      
+      const results = [];
+      for (const rate of rates) {
+        if (rate.price !== null && rate.price !== undefined && rate.price !== "") {
+          const result = await storage.upsertPortHotelRate({
+            portId: rate.portId,
+            hotelId: req.params.id,
+            price: rate.price,
+            isActive: true,
+          });
+          results.push(result);
+        }
+      }
+      
+      res.json({ success: true, rates: results });
+    } catch (error) {
+      res.status(400).json({ error: "Invalid rate data" });
+    }
+  });
+
+  // Ports API (public - for booking form)
+  app.get("/api/ports", async (req: Request, res: Response) => {
+    const ports = await storage.getActivePorts();
+    res.json(ports);
+  });
+
   // Zones API
   app.get("/api/admin/zones", requireAdmin, async (req: Request, res: Response) => {
     const zones = await storage.getAllZones();

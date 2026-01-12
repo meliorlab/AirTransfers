@@ -1,4 +1,4 @@
-import { getStripeSync, getUncachableStripeClient } from './stripeClient';
+import { getStripeSync } from './stripeClient';
 import { emailService } from './emailService';
 import { storage } from './storage';
 
@@ -13,51 +13,56 @@ export class WebhookHandlers {
       );
     }
 
+    // Keep a copy of the payload string before sync processes it
+    const payloadString = payload.toString();
+
+    // Let the sync library process and VERIFY the webhook signature first
     const sync = await getStripeSync();
     await sync.processWebhook(payload, signature);
 
-    // Parse the event to handle custom logic
+    // Only process custom business logic AFTER successful signature verification
+    // (If sync.processWebhook throws, we won't reach here)
     try {
-      const stripe = await getUncachableStripeClient();
-      const event = stripe.webhooks.constructEvent(
-        payload,
-        signature,
-        process.env.STRIPE_WEBHOOK_SECRET || ''
-      );
+      const event = JSON.parse(payloadString);
+      await this.handleCustomEvents(event);
+    } catch (error) {
+      console.error('Error processing custom webhook logic:', error);
+      // Don't throw - sync already processed successfully
+    }
+  }
 
-      // Handle successful payment
-      if (event.type === 'checkout.session.completed') {
-        const session = event.data.object as any;
-        const bookingId = session.metadata?.bookingId;
+  private static async handleCustomEvents(event: any): Promise<void> {
+    // Handle successful payment
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data?.object;
+      const bookingId = session?.metadata?.bookingId;
+      
+      if (bookingId) {
+        console.log(`Processing payment for booking ${bookingId}`);
+        const booking = await storage.getBooking(bookingId);
         
-        if (bookingId) {
-          const booking = await storage.getBooking(bookingId);
+        if (booking) {
+          // Update booking status to paid
+          await storage.updateBookingStatus(bookingId, 'paid_fee');
+          console.log(`Booking ${booking.referenceNumber} status updated to paid_fee`);
           
-          if (booking) {
-            // Update booking status to paid
-            await storage.updateBookingStatus(bookingId, 'paid_fee');
-            
-            // Send payment confirmation email
-            try {
-              await emailService.sendPaymentConfirmation({
-                customerEmail: booking.customerEmail,
-                customerName: booking.customerName,
-                referenceNumber: booking.referenceNumber,
-                pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
-                pickupLocation: booking.pickupLocation,
-                dropoffLocation: booking.dropoffLocation,
-                totalAmount: booking.totalAmount || "0",
-              });
-              console.log(`Payment confirmation email sent for booking ${booking.referenceNumber}`);
-            } catch (emailError) {
-              console.error('Failed to send payment confirmation email:', emailError);
-            }
+          // Send payment confirmation email
+          try {
+            await emailService.sendPaymentConfirmation({
+              customerEmail: booking.customerEmail,
+              customerName: booking.customerName,
+              referenceNumber: booking.referenceNumber,
+              pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+              pickupLocation: booking.pickupLocation,
+              dropoffLocation: booking.dropoffLocation,
+              totalAmount: booking.totalAmount || "0",
+            });
+            console.log(`Payment confirmation email sent for booking ${booking.referenceNumber}`);
+          } catch (emailError) {
+            console.error('Failed to send payment confirmation email:', emailError);
           }
         }
       }
-    } catch (webhookError) {
-      console.error('Error processing custom webhook logic:', webhookError);
-      // Don't throw - the sync already processed the webhook
     }
   }
 }

@@ -65,10 +65,7 @@ export default function AdminBookingDetail() {
 
   const assignDriverMutation = useMutation({
     mutationFn: async (driverId: string) => {
-      return await apiRequest(`/api/admin/bookings/${params?.id}/assign-driver`, {
-        method: "POST",
-        body: JSON.stringify({ driverId }),
-      });
+      return await apiRequest("POST", `/api/admin/bookings/${params?.id}/assign-driver`, { driverId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/bookings/${params?.id}`] });
@@ -90,10 +87,7 @@ export default function AdminBookingDetail() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async (status: string) => {
-      return await apiRequest(`/api/admin/bookings/${params?.id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      });
+      return await apiRequest("PATCH", `/api/admin/bookings/${params?.id}/status`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/bookings/${params?.id}`] });
@@ -105,7 +99,7 @@ export default function AdminBookingDetail() {
     },
   });
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -260,9 +254,9 @@ export default function AdminBookingDetail() {
             {assignedDriver ? (
               <div className="p-4 border rounded-md">
                 <div className="flex items-center gap-4">
-                  {assignedDriver.photoUrl && (
+                  {assignedDriver.driverPhotoUrl && (
                     <img
-                      src={assignedDriver.photoUrl}
+                      src={assignedDriver.driverPhotoUrl}
                       alt={assignedDriver.name}
                       className="w-16 h-16 rounded-full object-cover"
                     />
@@ -271,9 +265,9 @@ export default function AdminBookingDetail() {
                     <div className="font-semibold text-lg">{assignedDriver.name}</div>
                     <div className="text-sm text-muted-foreground">{assignedDriver.email}</div>
                     <div className="text-sm text-muted-foreground">{assignedDriver.phone}</div>
-                    {assignedDriver.vehicleInfo && (
+                    {assignedDriver.vehicleDetails && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        {assignedDriver.vehicleInfo}
+                        {assignedDriver.vehicleDetails}
                       </div>
                     )}
                   </div>
@@ -306,7 +300,7 @@ export default function AdminBookingDetail() {
                         <SelectContent>
                           {drivers?.filter(d => d.isActive).map((driver) => (
                             <SelectItem key={driver.id} value={driver.id}>
-                              {driver.name} - {driver.vehicleInfo || "No vehicle info"}
+                              {driver.name} - {driver.vehicleDetails || "No vehicle info"}
                             </SelectItem>
                           ))}
                         </SelectContent>

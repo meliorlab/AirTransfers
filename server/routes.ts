@@ -185,6 +185,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk import hotels from CSV data
+  app.post("/api/admin/hotels/bulk-import", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { hotels: hotelRows } = req.body;
+      
+      if (!Array.isArray(hotelRows)) {
+        return res.status(400).json({ error: "hotels must be an array" });
+      }
+      
+      const results = {
+        created: 0,
+        errors: [] as { row: number; name: string; error: string }[],
+      };
+      
+      const hotelsToCreate: { name: string; address: string; zoneId: string | null; isActive: boolean }[] = [];
+      
+      for (let i = 0; i < hotelRows.length; i++) {
+        const row = hotelRows[i];
+        const rowNum = i + 1;
+        
+        if (!row.name || typeof row.name !== 'string' || row.name.trim() === '') {
+          results.errors.push({ row: rowNum, name: row.name || 'Unknown', error: 'Hotel name is required' });
+          continue;
+        }
+        
+        let zoneId: string | null = null;
+        if (row.zone && typeof row.zone === 'string' && row.zone.trim() !== '') {
+          const zone = await storage.getZoneByName(row.zone.trim());
+          if (!zone) {
+            results.errors.push({ row: rowNum, name: row.name, error: `Zone "${row.zone}" not found` });
+            continue;
+          }
+          zoneId = zone.id;
+        }
+        
+        hotelsToCreate.push({
+          name: row.name.trim(),
+          address: row.address?.trim() || '',
+          zoneId,
+          isActive: true,
+        });
+      }
+      
+      if (hotelsToCreate.length > 0) {
+        await storage.bulkCreateHotels(hotelsToCreate);
+        results.created = hotelsToCreate.length;
+      }
+      
+      res.json(results);
+    } catch (error) {
+      console.error('Bulk import error:', error);
+      res.status(400).json({ error: "Failed to import hotels" });
+    }
+  });
+
   app.patch("/api/admin/hotels/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const hotel = await storage.updateHotel(req.params.id, req.body);

@@ -51,6 +51,7 @@ export interface IStorage {
   getActiveHotels(): Promise<Hotel[]>;
   getHotel(id: string): Promise<Hotel | undefined>;
   createHotel(hotel: InsertHotel): Promise<Hotel>;
+  bulkCreateHotels(hotelsList: InsertHotel[]): Promise<Hotel[]>;
   updateHotel(id: string, hotel: Partial<InsertHotel>): Promise<Hotel | undefined>;
   deleteHotel(id: string): Promise<boolean>;
   
@@ -171,6 +172,17 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async bulkCreateHotels(hotelsList: InsertHotel[]): Promise<Hotel[]> {
+    if (hotelsList.length === 0) return [];
+    const result = await db.insert(hotels).values(hotelsList).returning();
+    return result;
+  }
+
+  async getZoneByName(name: string): Promise<Zone | undefined> {
+    const result = await db.select().from(zones).where(eq(zones.name, name));
+    return result[0];
+  }
+
   async updateHotel(id: string, hotel: Partial<InsertHotel>): Promise<Hotel | undefined> {
     const result = await db.update(hotels).set(hotel).where(eq(hotels.id, id)).returning();
     return result[0];
@@ -192,11 +204,6 @@ export class DbStorage implements IStorage {
 
   async getZone(id: string): Promise<Zone | undefined> {
     const result = await db.select().from(zones).where(eq(zones.id, id));
-    return result[0];
-  }
-
-  async getZoneByName(name: string): Promise<Zone | undefined> {
-    const result = await db.select().from(zones).where(eq(zones.name, name));
     return result[0];
   }
 

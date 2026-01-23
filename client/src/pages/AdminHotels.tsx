@@ -272,20 +272,40 @@ export default function AdminHotels() {
     },
   });
 
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"' && (i === 0 || line[i - 1] !== '\\')) {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim().replace(/^["']|["']$/g, ''));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim().replace(/^["']|["']$/g, ''));
+    return result;
+  };
+
   const parseRatesCSV = (csv: string): { name: string; rateFromUVF: string; rateFromGFL: string; rateFromPortCastries: string }[] => {
     const lines = csv.trim().split('\n');
     if (lines.length < 2) return [];
     
-    const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+    const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
     const nameIndex = headers.findIndex(h => h === 'name' || h === 'hotel name' || h === 'hotel');
     const uvfIndex = headers.findIndex(h => h.includes('uvf') || h.includes('hewanorra'));
     const gflIndex = headers.findIndex(h => h.includes('gfl') || h.includes('slu') || h.includes('george'));
-    const portCastriesIndex = headers.findIndex(h => h.includes('port') || h.includes('castries') || h.includes('ferry'));
+    const portCastriesIndex = headers.findIndex(h => h.includes('port_castries') || h.includes('port castries') || (h.includes('castries') && !h.includes('port')));
     
     if (nameIndex === -1) return [];
     
     return lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+      const values = parseCSVLine(line);
       return {
         name: values[nameIndex] || '',
         rateFromUVF: uvfIndex !== -1 ? values[uvfIndex] || '' : '',

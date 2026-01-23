@@ -177,7 +177,7 @@ export class DbStorage implements IStorage {
   }
 
   async getHotelByName(name: string): Promise<Hotel | undefined> {
-    const result = await db.select().from(hotels).where(eq(hotels.name, name));
+    const result = await db.select().from(hotels).where(sql`LOWER(${hotels.name}) = LOWER(${name})`);
     return result[0];
   }
 

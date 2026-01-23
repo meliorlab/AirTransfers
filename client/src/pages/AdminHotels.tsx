@@ -36,7 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Building2, DollarSign, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, DollarSign, Upload, FileSpreadsheet, AlertCircle, ArrowUpDown } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Hotel, InsertHotel, Zone, Port } from "@shared/schema";
@@ -60,6 +60,7 @@ export default function AdminHotels() {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [csvContent, setCsvContent] = useState("");
   const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Hotel; direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
   
   const [formData, setFormData] = useState<Partial<InsertHotel>>({
     name: "",
@@ -280,6 +281,34 @@ export default function AdminHotels() {
     return zone?.name || null;
   };
 
+  const sortedHotels = hotels ? [...hotels].sort((a, b) => {
+    if (!sortConfig) return 0;
+    const { key, direction } = sortConfig;
+    const valA = a[key];
+    const valB = b[key];
+
+    if (valA === null || valA === undefined) return direction === 'asc' ? 1 : -1;
+    if (valB === null || valB === undefined) return direction === 'asc' ? -1 : 1;
+
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      const comparison = valA.localeCompare(valB);
+      return direction === 'asc' ? comparison : -comparison;
+    }
+
+    if (valA < valB) return direction === 'asc' ? -1 : 1;
+    if (valA > valB) return direction === 'asc' ? 1 : -1;
+    return 0;
+  }) : [];
+
+  const handleSort = (key: keyof Hotel) => {
+    setSortConfig(prev => {
+      if (prev?.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -407,15 +436,25 @@ export default function AdminHotels() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Hotel Name</TableHead>
-                    <TableHead>Address</TableHead>
+                    <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('name')}>
+                      <div className="flex items-center gap-2">
+                        Hotel Name
+                        <ArrowUpDown className="w-4 h-4 opacity-50" />
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('address')}>
+                      <div className="flex items-center gap-2">
+                        Address
+                        <ArrowUpDown className="w-4 h-4 opacity-50" />
+                      </div>
+                    </TableHead>
                     <TableHead>Zone</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {hotels.map((hotel) => {
+                  {sortedHotels.map((hotel) => {
                     const zoneName = getZoneName(hotel.zoneId);
                     return (
                       <TableRow key={hotel.id} data-testid={`row-hotel-${hotel.id}`}>

@@ -750,18 +750,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pickupDate = req.body.pickupDate ? new Date(req.body.pickupDate) : undefined;
       const isDestinationBooking = req.body.bookingType === "destination";
       
-      // For hotel bookings, set fixed pricing; for destination bookings, leave pricing null (pending quote)
+      // Calculate pricing for hotel bookings
+      let bookingFee: string | null = null;
+      let driverFee: string | null = null;
+      let totalAmount: string | null = null;
+      let balanceDueToDriver: string | null = null;
+      let pricingSet = false;
+      
+      if (!isDestinationBooking && req.body.arrivalPortId && req.body.hotelId) {
+        // Get port-hotel rate
+        const portHotelRate = await storage.getPortHotelRate(req.body.arrivalPortId, req.body.hotelId);
+        const basePrice = portHotelRate ? parseFloat(portHotelRate.price) : 30;
+        
+        // Check for large party surcharge
+        const surchargeAmountSetting = await storage.getSetting("large_party_surcharge_amount");
+        const minPartySizeSetting = await storage.getSetting("large_party_min_size");
+        const surchargeAmount = surchargeAmountSetting ? parseFloat(surchargeAmountSetting.value) : 20;
+        const minPartySize = minPartySizeSetting ? parseInt(minPartySizeSetting.value) : 4;
+        
+        const partySize = req.body.partySize || 1;
+        const surcharge = partySize >= minPartySize ? surchargeAmount : 0;
+        
+        const total = basePrice + surcharge;
+        
+        bookingFee = total.toFixed(2);
+        driverFee = basePrice.toFixed(2);
+        totalAmount = total.toFixed(2);
+        balanceDueToDriver = basePrice.toFixed(2);
+        pricingSet = true;
+      } else if (!isDestinationBooking) {
+        // Fallback for hotel bookings without port (shouldn't happen but for safety)
+        bookingFee = "30.00";
+        driverFee = "30.00";
+        totalAmount = "30.00";
+        balanceDueToDriver = "30.00";
+        pricingSet = true;
+      }
+      // For destination bookings, leave pricing null (pending quote from admin)
+      
       const bookingData = {
         ...req.body,
         pickupDate,
         referenceNumber: generateReferenceNumber(),
         status: "new",
-        // Only set pricing for hotel bookings
-        bookingFee: isDestinationBooking ? null : "30.00",
-        driverFee: isDestinationBooking ? null : "30.00",
-        totalAmount: isDestinationBooking ? null : "30.00",
-        balanceDueToDriver: isDestinationBooking ? null : "30.00",
-        pricingSet: !isDestinationBooking, // Hotel bookings have pricing set, destination bookings need manual pricing
+        bookingFee,
+        driverFee,
+        totalAmount,
+        balanceDueToDriver,
+        pricingSet,
       };
       
       const data = insertBookingSchema.parse(bookingData);

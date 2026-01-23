@@ -25,11 +25,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ArrowLeft, User, Mail, Phone, Calendar, MapPin, Plane, Car } from "lucide-react";
+import { ArrowLeft, User, Mail, Phone, Calendar, MapPin, Plane, Car, Users } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Booking, Driver } from "@shared/schema";
 import { useState } from "react";
+
+interface LargePartySurcharge {
+  amount: string;
+  minPartySize: string;
+}
 
 const statusColors: Record<string, string> = {
   new: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -61,6 +66,10 @@ export default function AdminBookingDetail() {
 
   const { data: drivers } = useQuery<Driver[]>({
     queryKey: ["/api/admin/drivers"],
+  });
+
+  const { data: surchargeSettings } = useQuery<LargePartySurcharge>({
+    queryKey: ["/api/settings/large-party-surcharge"],
   });
 
   const assignDriverMutation = useMutation({
@@ -226,18 +235,40 @@ export default function AdminBookingDetail() {
               <CardTitle>Pricing</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Booking Fee</span>
-                <span className="font-medium">${booking.bookingFee}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Driver Fee</span>
-                <span className="font-medium">${booking.driverFee}</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t">
-                <span className="font-semibold">Balance Due to Driver</span>
-                <span className="font-semibold text-primary">${booking.balanceDueToDriver}</span>
-              </div>
+              {(() => {
+                const minPartySize = surchargeSettings ? parseInt(surchargeSettings.minPartySize) : 4;
+                const surchargeAmount = surchargeSettings ? parseFloat(surchargeSettings.amount) : 20;
+                const hasSurcharge = booking.partySize >= minPartySize;
+                const basePrice = hasSurcharge && booking.driverFee 
+                  ? parseFloat(booking.driverFee) 
+                  : (booking.bookingFee ? parseFloat(booking.bookingFee) : 0);
+                
+                return (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Base Transfer Rate</span>
+                      <span className="font-medium">${booking.driverFee || "0.00"}</span>
+                    </div>
+                    {hasSurcharge && (
+                      <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          Large Party Surcharge ({booking.partySize}+ travelers)
+                        </span>
+                        <span className="font-medium">+${surchargeAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between pt-2 border-t">
+                      <span className="font-semibold">Total Amount</span>
+                      <span className="font-semibold">${booking.bookingFee || "0.00"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Balance Due to Driver</span>
+                      <span className="font-medium text-primary">${booking.balanceDueToDriver || "0.00"}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>

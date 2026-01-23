@@ -241,6 +241,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk import port-hotel rates from CSV data
+  app.post("/api/admin/hotels/bulk-import-rates", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { rates: rateRows } = req.body;
+      
+      if (!Array.isArray(rateRows)) {
+        return res.status(400).json({ error: "rates must be an array" });
+      }
+      
+      const results = {
+        updated: 0,
+        created: 0,
+        errors: [] as { row: number; name: string; error: string }[],
+      };
+      
+      // Get all ports for mapping
+      const allPorts = await storage.getAllPorts();
+      const portMap: Record<string, string> = {};
+      for (const port of allPorts) {
+        // Map by code (UVF, SLU, PORT_CASTRIES)
+        if (port.code) {
+          portMap[port.code.toUpperCase()] = port.id;
+          // Also support GFL as alias for SLU (George F. L. Charles Airport)
+          if (port.code.toUpperCase() === 'SLU') {
+            portMap['GFL'] = port.id;
+          }
+        }
+      }
+      
+      for (let i = 0; i < rateRows.length; i++) {
+        const row = rateRows[i];
+        const rowNum = i + 1;
+        
+        if (!row.name || typeof row.name !== 'string' || row.name.trim() === '') {
+          results.errors.push({ row: rowNum, name: row.name || 'Unknown', error: 'Hotel name is required' });
+          continue;
+        }
+        
+        // Find hotel by name (case-insensitive)
+        const hotel = await storage.getHotelByName(row.name.trim());
+        if (!hotel) {
+          results.errors.push({ row: rowNum, name: row.name, error: `Hotel "${row.name}" not found` });
+          continue;
+        }
+        
+        // Process each port rate
+        const portRateMappings = [
+          { key: 'rateFromUVF', portCode: 'UVF' },
+          { key: 'rateFromGFL', portCode: 'GFL' },
+          { key: 'rateFromPortCastries', portCode: 'PORT_CASTRIES' },
+        ];
+        
+        for (const mapping of portRateMappings) {
+          const rateValue = row[mapping.key];
+          if (rateValue !== undefined && rateValue !== null && rateValue !== '') {
+            const price = parseFloat(String(rateValue).replace(/[^0-9.]/g, ''));
+            if (isNaN(price)) {
+              results.errors.push({ row: rowNum, name: row.name, error: `Invalid rate for ${mapping.portCode}: "${rateValue}"` });
+              continue;
+            }
+            
+            const portId = portMap[mapping.portCode];
+            if (!portId) {
+              results.errors.push({ row: rowNum, name: row.name, error: `Port ${mapping.portCode} not found` });
+              continue;
+            }
+            
+            // Check if rate exists
+            const existingRate = await storage.getPortHotelRate(portId, hotel.id);
+            
+            await storage.upsertPortHotelRate({
+              portId,
+              hotelId: hotel.id,
+              price: price.toFixed(2),
+              isActive: true,
+            });
+            
+            if (existingRate) {
+              results.updated++;
+            } else {
+              results.created++;
+            }
+          }
+        }
+      }
+      
+      res.json(results);
+    } catch (error) {
+      console.error('Bulk import rates error:', error);
+      res.status(400).json({ error: "Failed to import rates" });
+    }
+  });
+
   app.patch("/api/admin/hotels/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const hotel = await storage.updateHotel(req.params.id, req.body);

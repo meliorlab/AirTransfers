@@ -65,6 +65,9 @@ export default function AdminDrivers() {
     vehicleNumber: "",
     vehiclePhotoUrl: "",
     driverPhotoUrl: "",
+    bankName: "",
+    accountNumber: "",
+    bankAddress: "",
     isActive: true,
   });
 
@@ -128,6 +131,9 @@ export default function AdminDrivers() {
       vehicleNumber: "",
       vehiclePhotoUrl: "",
       driverPhotoUrl: "",
+      bankName: "",
+      accountNumber: "",
+      bankAddress: "",
       isActive: true,
     });
     setEditingDriver(null);
@@ -163,6 +169,9 @@ export default function AdminDrivers() {
       vehicleNumber: driver.vehicleNumber || "",
       vehiclePhotoUrl: driver.vehiclePhotoUrl || "",
       driverPhotoUrl: driver.driverPhotoUrl || "",
+      bankName: driver.bankName || "",
+      accountNumber: driver.accountNumber || "",
+      bankAddress: driver.bankAddress || "",
       isActive: driver.isActive,
     });
     setIsDialogOpen(true);
@@ -368,6 +377,44 @@ export default function AdminDrivers() {
                           </p>
                         </div>
                       </div>
+                    </div>
+                    
+                    <div className="col-span-2 border-t pt-4 mt-2">
+                      <Label className="text-base font-medium">Bank Details</Label>
+                      <p className="text-sm text-muted-foreground mb-3">Payment information for driver compensation</p>
+                    </div>
+                    
+                    <div className="col-span-2">
+                      <Label htmlFor="bankName">Bank Name</Label>
+                      <Input
+                        id="bankName"
+                        data-testid="input-bank-name"
+                        value={formData.bankName || ""}
+                        onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                        placeholder="Bank of St. Lucia"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="accountNumber">Account Number</Label>
+                      <Input
+                        id="accountNumber"
+                        data-testid="input-account-number"
+                        value={formData.accountNumber || ""}
+                        onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                        placeholder="1234567890"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="bankAddress">Bank Address</Label>
+                      <Input
+                        id="bankAddress"
+                        data-testid="input-bank-address"
+                        value={formData.bankAddress || ""}
+                        onChange={(e) => setFormData({ ...formData, bankAddress: e.target.value })}
+                        placeholder="123 Main Street, Castries"
+                      />
                     </div>
                     
                     <div className="col-span-2 flex items-center justify-between border rounded-md p-3">

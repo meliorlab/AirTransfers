@@ -31,6 +31,9 @@ export const drivers = pgTable("drivers", {
   vehicleNumber: text("vehicle_number"), // License plate or vehicle number
   vehiclePhotoUrl: text("vehicle_photo_url"),
   driverPhotoUrl: text("driver_photo_url"),
+  bankName: text("bank_name"),
+  accountNumber: text("account_number"),
+  bankAddress: text("bank_address"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

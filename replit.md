@@ -77,6 +77,14 @@ Preferred communication style: Simple, everyday language.
 - Public endpoint `/api/settings/large-party-surcharge` returns current settings for frontend price display
 - Booking confirmation shows base rate + surcharge breakdown when applicable
 
+**Bulk Rate Import:**
+- Admin can upload CSV file to bulk import/update port-hotel rates
+- CSV format: name, rate from UVF, rate from GFL, rate from PORT_Castries
+- Hotel names matched case-insensitively against existing hotels
+- Supports quoted CSV fields for hotel names with commas
+- Existing rates are overwritten, new rates are created
+- API endpoint: POST `/api/admin/hotels/bulk-import-rates`
+
 **Zone Management:**
 - 17 St. Lucia zones: Gros Islet, Babonneau, Castries (North/East/Central/South/South East), Anse-La-Raye/Canaries, Soufriere, Choiseul, Laborie, Vieux-Fort (South/North), Micoud (South/North), Dennery (South/North)
 - Zone-to-zone pricing: Admin selects origin zone, then sets prices to each destination zone

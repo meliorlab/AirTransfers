@@ -81,9 +81,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <Sidebar>
           <SidebarContent>
             <SidebarGroup>
-              <SidebarGroupLabel className="text-lg font-heading font-semibold px-4 py-3">
-                Airport Transfer Admin
-              </SidebarGroupLabel>
+              <SidebarGroupLabel className="text-lg font-heading font-semibold px-4 py-3">IslandPortTransfers</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {menuItems.map((item) => (

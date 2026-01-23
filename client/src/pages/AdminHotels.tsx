@@ -36,13 +36,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Building2, DollarSign } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, DollarSign, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Hotel, InsertHotel, Zone, Port } from "@shared/schema";
 
 interface PortWithRate extends Port {
   price: string | null;
+}
+
+interface BulkImportResult {
+  created: number;
+  errors: { row: number; name: string; error: string }[];
 }
 
 export default function AdminHotels() {
@@ -52,6 +57,9 @@ export default function AdminHotels() {
   const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false);
   const [pricingHotel, setPricingHotel] = useState<Hotel | null>(null);
   const [portRates, setPortRates] = useState<Record<string, string>>({});
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [csvContent, setCsvContent] = useState("");
+  const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
   
   const [formData, setFormData] = useState<Partial<InsertHotel>>({
     name: "",
@@ -152,6 +160,81 @@ export default function AdminHotels() {
     savePortRatesMutation.mutate({ hotelId: pricingHotel.id, rates });
   };
 
+  const bulkImportMutation = useMutation({
+    mutationFn: async (hotels: { name: string; address: string; zone: string }[]) => {
+      const response = await apiRequest("POST", "/api/admin/hotels/bulk-import", { hotels });
+      return response.json();
+    },
+    onSuccess: (data: BulkImportResult) => {
+      setImportResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/hotels"] });
+      if (data.created > 0) {
+        toast({ title: `Successfully imported ${data.created} hotels` });
+      }
+      if (data.errors.length > 0) {
+        toast({ 
+          title: `${data.errors.length} rows had errors`, 
+          variant: "destructive" 
+        });
+      }
+    },
+    onError: () => {
+      toast({ title: "Failed to import hotels", variant: "destructive" });
+    },
+  });
+
+  const parseCSV = (csv: string): { name: string; address: string; zone: string }[] => {
+    const lines = csv.trim().split('\n');
+    if (lines.length < 2) return [];
+    
+    const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+    const nameIndex = headers.findIndex(h => h === 'name' || h === 'hotel name' || h === 'hotel');
+    const addressIndex = headers.findIndex(h => h === 'address' || h === 'location');
+    const zoneIndex = headers.findIndex(h => h === 'zone' || h === 'area' || h === 'region');
+    
+    if (nameIndex === -1) return [];
+    
+    return lines.slice(1).map(line => {
+      const values = line.split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+      return {
+        name: values[nameIndex] || '',
+        address: addressIndex !== -1 ? values[addressIndex] || '' : '',
+        zone: zoneIndex !== -1 ? values[zoneIndex] || '' : '',
+      };
+    }).filter(row => row.name);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      setCsvContent(text);
+      setImportResult(null);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImport = () => {
+    const hotels = parseCSV(csvContent);
+    if (hotels.length === 0) {
+      toast({ 
+        title: "No valid rows found", 
+        description: "Make sure your CSV has a 'name' column",
+        variant: "destructive" 
+      });
+      return;
+    }
+    bulkImportMutation.mutate(hotels);
+  };
+
+  const resetImportDialog = () => {
+    setCsvContent("");
+    setImportResult(null);
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -205,16 +288,25 @@ export default function AdminHotels() {
             <h1 className="text-3xl font-heading font-bold">Hotels</h1>
             <p className="text-muted-foreground mt-1">Manage pickup/dropoff hotel locations</p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-hotel">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Hotel
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              data-testid="button-import-hotels"
+              onClick={() => setIsImportDialogOpen(true)}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Import CSV
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-add-hotel">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Hotel
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editingHotel ? "Edit Hotel" : "Add New Hotel"}</DialogTitle>
@@ -292,7 +384,8 @@ export default function AdminHotels() {
                 </Button>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
 
         <Card>
@@ -428,6 +521,103 @@ export default function AdminHotels() {
                 </Button>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isImportDialogOpen} onOpenChange={(open) => {
+          setIsImportDialogOpen(open);
+          if (!open) resetImportDialog();
+        }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5" />
+                Import Hotels from CSV
+              </DialogTitle>
+              <DialogDescription>
+                Upload a CSV file with columns: name, address, zone
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="csv-upload"
+                  data-testid="input-csv-upload"
+                />
+                <label htmlFor="csv-upload" className="cursor-pointer">
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    {csvContent ? "File loaded - click to replace" : "Click to select CSV file"}
+                  </p>
+                </label>
+              </div>
+
+              {csvContent && (
+                <div className="bg-muted/50 rounded-md p-3">
+                  <p className="text-sm font-medium mb-1">Preview</p>
+                  <p className="text-xs text-muted-foreground">
+                    {parseCSV(csvContent).length} hotels found in file
+                  </p>
+                </div>
+              )}
+
+              {importResult && (
+                <div className="space-y-2">
+                  {importResult.created > 0 && (
+                    <div className="bg-primary/10 rounded-md p-3">
+                      <p className="text-sm text-primary font-medium">
+                        Successfully imported {importResult.created} hotels
+                      </p>
+                    </div>
+                  )}
+                  {importResult.errors.length > 0 && (
+                    <div className="bg-destructive/10 rounded-md p-3 space-y-1">
+                      <p className="text-sm text-destructive font-medium flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {importResult.errors.length} errors
+                      </p>
+                      <div className="max-h-32 overflow-y-auto text-xs space-y-1">
+                        {importResult.errors.map((err, i) => (
+                          <p key={i} className="text-destructive/80">
+                            Row {err.row}: {err.name} - {err.error}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="bg-muted/30 rounded-md p-3">
+                <p className="text-xs text-muted-foreground">
+                  <strong>CSV Format:</strong> The file should have headers like "name", "address", "zone". 
+                  Zone names must match exactly with existing zones in the system.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setIsImportDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  data-testid="button-import-submit"
+                  onClick={handleImport}
+                  disabled={!csvContent || bulkImportMutation.isPending}
+                >
+                  {bulkImportMutation.isPending ? "Importing..." : "Import Hotels"}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

@@ -239,33 +239,40 @@ export default function AdminBookingDetail() {
                 const minPartySize = surchargeSettings ? parseInt(surchargeSettings.minPartySize) : 4;
                 const surchargeAmount = surchargeSettings ? parseFloat(surchargeSettings.amount) : 20;
                 const hasSurcharge = booking.partySize >= minPartySize;
-                const basePrice = hasSurcharge && booking.driverFee 
-                  ? parseFloat(booking.driverFee) 
-                  : (booking.bookingFee ? parseFloat(booking.bookingFee) : 0);
+                const totalAmount = booking.totalAmount ? parseFloat(booking.totalAmount) : 0;
+                const calculatedBaseRate = hasSurcharge ? totalAmount - surchargeAmount : totalAmount;
                 
                 return (
                   <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Base Transfer Rate</span>
-                      <span className="font-medium">${booking.driverFee || "0.00"}</span>
-                    </div>
-                    {hasSurcharge && (
-                      <div className="flex justify-between text-amber-600 dark:text-amber-400">
-                        <span className="flex items-center gap-1">
-                          <Users className="w-3 h-3" />
-                          Large Party Surcharge ({booking.partySize}+ travelers)
-                        </span>
-                        <span className="font-medium">+${surchargeAmount.toFixed(2)}</span>
+                    {booking.pricingSet ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Base Transfer Rate</span>
+                          <span className="font-medium">${calculatedBaseRate.toFixed(2)}</span>
+                        </div>
+                        {hasSurcharge && (
+                          <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              Large Party Surcharge ({booking.partySize}+ travelers)
+                            </span>
+                            <span className="font-medium">+${surchargeAmount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between pt-2 border-t">
+                          <span className="font-semibold">Total Amount</span>
+                          <span className="font-semibold">${booking.totalAmount || "0.00"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Balance Due to Driver</span>
+                          <span className="font-medium text-primary">${booking.balanceDueToDriver || "0.00"}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Pricing not yet set. Set pricing below to generate payment link.
                       </div>
                     )}
-                    <div className="flex justify-between pt-2 border-t">
-                      <span className="font-semibold">Total Amount</span>
-                      <span className="font-semibold">${booking.bookingFee || "0.00"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Balance Due to Driver</span>
-                      <span className="font-medium text-primary">${booking.balanceDueToDriver || "0.00"}</span>
-                    </div>
                   </>
                 );
               })()}

@@ -55,6 +55,25 @@ export default function HeroSection() {
     enabled: activeTab === "hotel" && !!selectedPort && !!selectedHotel,
   });
 
+  // Fetch large party surcharge settings
+  const { data: surchargeSettings } = useQuery<{ amount: string; minPartySize: string }>({
+    queryKey: ["/api/settings/large-party-surcharge"],
+  });
+
+  // Calculate total price including surcharge
+  const calculateTotalPrice = () => {
+    if (!portHotelRate?.price) return null;
+    const basePrice = parseFloat(portHotelRate.price);
+    const minPartySize = surchargeSettings ? parseInt(surchargeSettings.minPartySize) : 4;
+    const surchargeAmount = surchargeSettings ? parseFloat(surchargeSettings.amount) : 20;
+    const currentPartySize = parseInt(partySize) || 1;
+    
+    if (currentPartySize >= minPartySize) {
+      return { basePrice, surcharge: surchargeAmount, total: basePrice + surchargeAmount };
+    }
+    return { basePrice, surcharge: 0, total: basePrice };
+  };
+
   const getPickupLocation = () => {
     const port = ports?.find(p => p.id === selectedPort);
     return port?.name || "Airport";
@@ -510,14 +529,35 @@ export default function HeroSection() {
 
                   <div className="border border-border rounded-md p-6 mb-6">
                     {activeTab === "hotel" ? (
-                      <>
-                        <h3 className="text-center text-lg font-semibold text-foreground mb-2">
-                          Booking Fee
-                        </h3>
-                        <div className="text-center text-5xl font-bold text-primary mb-6">
-                          {portHotelRate?.price ? `$${portHotelRate.price}` : "Quote pending"}
-                        </div>
-                      </>
+                      (() => {
+                        const pricing = calculateTotalPrice();
+                        return (
+                          <>
+                            <h3 className="text-center text-lg font-semibold text-foreground mb-2">
+                              Booking Fee
+                            </h3>
+                            {pricing ? (
+                              <>
+                                <div className="text-center text-5xl font-bold text-primary mb-2">
+                                  ${pricing.total.toFixed(2)}
+                                </div>
+                                {pricing.surcharge > 0 && (
+                                  <div className="text-center text-sm text-muted-foreground mb-4">
+                                    <span className="block">Base rate: ${pricing.basePrice.toFixed(2)}</span>
+                                    <span className="block text-amber-600 dark:text-amber-400">
+                                      + ${pricing.surcharge.toFixed(2)} large party fee ({partySize}+ travelers)
+                                    </span>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-center text-5xl font-bold text-primary mb-6">
+                                Quote pending
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()
                     ) : (
                       <>
                         <div className="flex items-center justify-center mb-3">

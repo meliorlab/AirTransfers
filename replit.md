@@ -67,6 +67,15 @@ Preferred communication style: Simple, everyday language.
 - Rates table for base pricing by vehicle class and party size
 - Pricing rules table for dynamic pricing adjustments
 - Bookings table with comprehensive trip details and status tracking
+- Settings table for configurable system values (key-value pairs)
+
+**Large Party Surcharge:**
+- Configurable fee applied to bookings with party size >= threshold (default: $20 for 4+ travelers)
+- Settings stored in database: `large_party_surcharge_amount` and `large_party_surcharge_min_party_size`
+- Admin can adjust via Settings page in admin dashboard
+- Surcharge automatically added to totalAmount when creating hotel bookings
+- Public endpoint `/api/settings/large-party-surcharge` returns current settings for frontend price display
+- Booking confirmation shows base rate + surcharge breakdown when applicable
 
 **Zone Management:**
 - 17 St. Lucia zones: Gros Islet, Babonneau, Castries (North/East/Central/South/South East), Anse-La-Raye/Canaries, Soufriere, Choiseul, Laborie, Vieux-Fort (South/North), Micoud (South/North), Dennery (South/North)

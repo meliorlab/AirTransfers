@@ -12,6 +12,7 @@ import AdminHotels from "@/pages/AdminHotels";
 import AdminZones from "@/pages/AdminZones";
 import AdminRates from "@/pages/AdminRates";
 import AdminPricingRules from "@/pages/AdminPricingRules";
+import AdminSettings from "@/pages/AdminSettings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/admin/zones" component={AdminZones} />
       <Route path="/admin/rates" component={AdminRates} />
       <Route path="/admin/pricing-rules" component={AdminPricingRules} />
+      <Route path="/admin/settings" component={AdminSettings} />
       <Route component={NotFound} />
     </Switch>
   );

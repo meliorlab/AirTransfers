@@ -9,6 +9,7 @@ import {
   insertRateSchema,
   insertPricingRuleSchema,
   insertBookingSchema,
+  insertSettingSchema,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { z } from "zod";
@@ -790,6 +791,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(400).json({ error: "Invalid booking data" });
     }
   });
+
+  // Settings API (admin)
+  app.get("/api/admin/settings", requireAdmin, async (req: Request, res: Response) => {
+    const settings = await storage.getAllSettings();
+    res.json(settings);
+  });
+
+  app.post("/api/admin/settings", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const data = insertSettingSchema.parse(req.body);
+      const setting = await storage.upsertSetting(data);
+      res.json(setting);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid setting data" });
+    }
+  });
+
+  // Public settings endpoint for pricing calculations
+  app.get("/api/settings/large-party-surcharge", async (req: Request, res: Response) => {
+    const surchargeAmount = await storage.getSetting("large_party_surcharge_amount");
+    const minPartySize = await storage.getSetting("large_party_min_size");
+    
+    res.json({
+      amount: surchargeAmount?.value || "20",
+      minPartySize: minPartySize?.value || "4",
+    });
+  });
+
+  // Initialize default settings if not exist
+  const initDefaultSettings = async () => {
+    const surchargeAmount = await storage.getSetting("large_party_surcharge_amount");
+    if (!surchargeAmount) {
+      await storage.upsertSetting({
+        key: "large_party_surcharge_amount",
+        value: "20",
+        description: "Additional fee charged when party size is equal to or exceeds the minimum threshold",
+      });
+    }
+    
+    const minSize = await storage.getSetting("large_party_min_size");
+    if (!minSize) {
+      await storage.upsertSetting({
+        key: "large_party_min_size",
+        value: "4",
+        description: "Minimum number of travelers to trigger the large party surcharge",
+      });
+    }
+  };
+  
+  initDefaultSettings().catch(console.error);
 
   const httpServer = createServer(app);
   return httpServer;

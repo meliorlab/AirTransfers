@@ -20,7 +20,8 @@ import {
   Tag, 
   Users, 
   Building2,
-  LogOut 
+  LogOut,
+  Settings,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +33,7 @@ const menuItems = [
   { title: "Zones", url: "/admin/zones", icon: MapPin },
   { title: "Rates", url: "/admin/rates", icon: DollarSign },
   { title: "Pricing Rules", url: "/admin/pricing-rules", icon: Tag },
+  { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

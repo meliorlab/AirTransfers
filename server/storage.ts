@@ -20,6 +20,8 @@ import {
   type InsertPort,
   type PortHotelRate,
   type InsertPortHotelRate,
+  type Setting,
+  type InsertSetting,
   adminUsers,
   drivers,
   hotels,
@@ -30,6 +32,7 @@ import {
   bookings,
   ports,
   portHotelRates,
+  settings,
 } from "@shared/schema";
 import { eq, and, desc, or, like, sql } from "drizzle-orm";
 
@@ -109,6 +112,11 @@ export interface IStorage {
   getPortHotelRates(hotelId: string): Promise<PortHotelRate[]>;
   getPortHotelRate(portId: string, hotelId: string): Promise<PortHotelRate | undefined>;
   upsertPortHotelRate(rate: InsertPortHotelRate): Promise<PortHotelRate>;
+  
+  // Settings
+  getAllSettings(): Promise<Setting[]>;
+  getSetting(key: string): Promise<Setting | undefined>;
+  upsertSetting(setting: InsertSetting): Promise<Setting>;
 }
 
 export class DbStorage implements IStorage {
@@ -460,6 +468,29 @@ export class DbStorage implements IStorage {
       return result[0];
     }
     const result = await db.insert(portHotelRates).values(rate).returning();
+    return result[0];
+  }
+
+  // Settings
+  async getAllSettings(): Promise<Setting[]> {
+    return await db.select().from(settings).orderBy(settings.key);
+  }
+
+  async getSetting(key: string): Promise<Setting | undefined> {
+    const result = await db.select().from(settings).where(eq(settings.key, key));
+    return result[0];
+  }
+
+  async upsertSetting(setting: InsertSetting): Promise<Setting> {
+    const existing = await this.getSetting(setting.key);
+    if (existing) {
+      const result = await db.update(settings)
+        .set({ value: setting.value, description: setting.description, updatedAt: new Date() })
+        .where(eq(settings.id, existing.id))
+        .returning();
+      return result[0];
+    }
+    const result = await db.insert(settings).values(setting).returning();
     return result[0];
   }
 }

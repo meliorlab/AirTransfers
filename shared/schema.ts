@@ -257,6 +257,23 @@ export const insertPortHotelRateSchema = createInsertSchema(portHotelRates).omit
 export type InsertPortHotelRate = z.infer<typeof insertPortHotelRateSchema>;
 export type PortHotelRate = typeof portHotelRates.$inferSelect;
 
+// Settings (configurable values)
+export const settings = pgTable("settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertSettingSchema = createInsertSchema(settings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertSetting = z.infer<typeof insertSettingSchema>;
+export type Setting = typeof settings.$inferSelect;
+
 // Keep legacy users table for backward compatibility
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -60,7 +60,7 @@ Preferred communication style: Simple, everyday language.
 
 **Schema Design:**
 - Admin users table with bcrypt-hashed passwords
-- Drivers table with contact info, vehicle details, and active status
+- Drivers table with contact info, vehicle details, bank details (bankName, accountNumber, bankAddress), and active status
 - Zones table for 17 St. Lucia service zones (seeded on first run)
 - Zone routes table for zone-to-zone pricing with unique constraint on origin/destination pairs
 - Hotels table with zoneId foreign key linking to zones

@@ -77,6 +77,13 @@ Preferred communication style: Simple, everyday language.
 - Public endpoint `/api/settings/large-party-surcharge` returns current settings for frontend price display
 - Booking confirmation shows base rate + surcharge breakdown when applicable
 
+**Tax:**
+- Configurable tax percentage applied to all bookings (default: 0%)
+- Setting stored in database: `tax_percentage`
+- Admin can adjust via Settings page in admin dashboard
+- Tax calculated on subtotal (base rate + surcharge) and added to final booking total
+- Public endpoint `/api/settings/tax` returns current tax percentage
+
 **Bulk Rate Import:**
 - Admin can upload CSV file to bulk import/update port-hotel rates
 - CSV format: name, rate from UVF, rate from GFL, rate from PORT_Castries

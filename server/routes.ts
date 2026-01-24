@@ -861,10 +861,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const surchargeAmount = surchargeAmountSetting ? parseFloat(surchargeAmountSetting.value) : 20;
         const minPartySize = minPartySizeSetting ? parseInt(minPartySizeSetting.value) : 4;
         
+        // Get tax percentage
+        const taxPercentageSetting = await storage.getSetting("tax_percentage");
+        const taxPercentage = taxPercentageSetting ? parseInt(taxPercentageSetting.value) : 0;
+        
         const partySize = req.body.partySize || 1;
         const surcharge = partySize >= minPartySize ? surchargeAmount : 0;
         
-        const total = basePrice + surcharge;
+        // Calculate tax on the base price + surcharge
+        const subtotal = basePrice + surcharge;
+        const taxAmount = (subtotal * taxPercentage) / 100;
+        const total = subtotal + taxAmount;
         
         bookingFee = total.toFixed(2);
         driverFee = basePrice.toFixed(2);
@@ -948,6 +955,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Public settings endpoint for tax
+  app.get("/api/settings/tax", async (req: Request, res: Response) => {
+    const taxPercentage = await storage.getSetting("tax_percentage");
+    
+    res.json({
+      percentage: taxPercentage?.value || "0",
+    });
+  });
+
   // Initialize default settings if not exist
   const initDefaultSettings = async () => {
     const surchargeAmount = await storage.getSetting("large_party_surcharge_amount");
@@ -965,6 +981,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         key: "large_party_min_size",
         value: "4",
         description: "Minimum number of travelers to trigger the large party surcharge",
+      });
+    }
+    
+    const taxPercentage = await storage.getSetting("tax_percentage");
+    if (!taxPercentage) {
+      await storage.upsertSetting({
+        key: "tax_percentage",
+        value: "0",
+        description: "Tax percentage applied to all bookings",
       });
     }
   };

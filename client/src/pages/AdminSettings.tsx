@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Settings, Users, DollarSign } from "lucide-react";
+import { Settings, Users, DollarSign, Percent } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,13 +20,22 @@ interface LargePartySurcharge {
   minPartySize: string;
 }
 
+interface TaxSettings {
+  percentage: string;
+}
+
 export default function AdminSettings() {
   const { toast } = useToast();
   const [surchargeAmount, setSurchargeAmount] = useState("");
   const [minPartySize, setMinPartySize] = useState("");
+  const [taxPercentage, setTaxPercentage] = useState("");
 
   const { data: surchargeSettings, isLoading } = useQuery<LargePartySurcharge>({
     queryKey: ["/api/settings/large-party-surcharge"],
+  });
+
+  const { data: taxSettings, isLoading: taxLoading } = useQuery<TaxSettings>({
+    queryKey: ["/api/settings/tax"],
   });
 
   useEffect(() => {
@@ -35,6 +44,12 @@ export default function AdminSettings() {
       setMinPartySize(surchargeSettings.minPartySize);
     }
   }, [surchargeSettings]);
+
+  useEffect(() => {
+    if (taxSettings) {
+      setTaxPercentage(taxSettings.percentage);
+    }
+  }, [taxSettings]);
 
   const saveSurchargeMutation = useMutation({
     mutationFn: async () => {
@@ -52,14 +67,32 @@ export default function AdminSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/large-party-surcharge"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
-      toast({ title: "Settings saved successfully" });
+      toast({ title: "Surcharge settings saved successfully" });
     },
     onError: () => {
       toast({ title: "Failed to save settings", variant: "destructive" });
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const saveTaxMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/admin/settings", {
+        key: "tax_percentage",
+        value: taxPercentage,
+        description: "Tax percentage applied to all bookings",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/tax"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
+      toast({ title: "Tax settings saved successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to save tax settings", variant: "destructive" });
+    },
+  });
+
+  const handleSurchargeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!surchargeAmount || parseFloat(surchargeAmount) < 0) {
@@ -73,6 +106,18 @@ export default function AdminSettings() {
     }
     
     saveSurchargeMutation.mutate();
+  };
+
+  const handleTaxSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const taxValue = parseInt(taxPercentage);
+    if (isNaN(taxValue) || taxValue < 0 || taxValue > 100) {
+      toast({ title: "Please enter a valid tax percentage (0-100)", variant: "destructive" });
+      return;
+    }
+    
+    saveTaxMutation.mutate();
   };
 
   return (
@@ -100,7 +145,7 @@ export default function AdminSettings() {
             {isLoading ? (
               <div className="text-center py-4 text-muted-foreground">Loading...</div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSurchargeSubmit} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="minPartySize" className="flex items-center gap-2">
@@ -159,6 +204,64 @@ export default function AdminSettings() {
                   disabled={saveSurchargeMutation.isPending}
                 >
                   {saveSurchargeMutation.isPending ? "Saving..." : "Save Settings"}
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Percent className="w-5 h-5" />
+              Tax
+            </CardTitle>
+            <CardDescription>
+              Apply a tax percentage to all bookings
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {taxLoading ? (
+              <div className="text-center py-4 text-muted-foreground">Loading...</div>
+            ) : (
+              <form onSubmit={handleTaxSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="taxPercentage" className="flex items-center gap-2">
+                    <Percent className="w-4 h-4" />
+                    Tax Percentage
+                  </Label>
+                  <div className="relative max-w-xs">
+                    <Input
+                      id="taxPercentage"
+                      data-testid="input-tax-percentage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={taxPercentage}
+                      onChange={(e) => setTaxPercentage(e.target.value)}
+                      placeholder="0"
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This percentage will be applied to all booking totals
+                  </p>
+                </div>
+
+                <div className="bg-muted/50 rounded-md p-4">
+                  <p className="text-sm">
+                    <strong>Current Setting:</strong> {taxPercentage || "0"}% tax will be added to all bookings.
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  data-testid="button-save-tax"
+                  disabled={saveTaxMutation.isPending}
+                >
+                  {saveTaxMutation.isPending ? "Saving..." : "Save Tax Settings"}
                 </Button>
               </form>
             )}

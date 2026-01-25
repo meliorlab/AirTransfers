@@ -178,15 +178,25 @@ Preferred communication style: Simple, everyday language.
 
 **Integration:**
 - Resend API via Replit connector
-- HTML email templates for all workflows
+- HTML email templates stored in database with admin editing capability
+
+**Email Template Management:**
+- Email templates table stores: templateKey, name, subject, body, triggerDescription, recipientType, availableVariables, isActive
+- Default templates seeded on first run: Booking Confirmation, Quote Ready, Payment Link, Payment Confirmation, Driver Assignment
+- Admin can edit subject and body via "Emails" tab in admin dashboard
+- Templates use `{{variableName}}` placeholder syntax for dynamic content
+- Available variables displayed as badges in editor for easy reference
+- Email service fetches templates from database with fallback to hardcoded templates if missing/inactive
+- API endpoints: GET/PUT /api/admin/email-templates
 
 **Email Workflows:**
-1. **Booking Confirmation**: Sent when customer completes booking form
-2. **Quote Notification**: Sent when admin sets pricing for destination bookings (idempotent - only first time)
-3. **Payment Link**: Sent when admin triggers payment link (includes Stripe payment URL)
-4. **Payment Confirmation**: Sent when customer completes payment via Stripe (triggered by checkout.session.completed webhook)
-5. **Driver Assignment**: Sent to driver when admin assigns them to a booking (includes trip details, customer info, and driver fee)
+1. **Booking Confirmation** (booking_confirmation): Sent to customer when completing booking form
+2. **Quote Ready** (quote_notification): Sent to customer when admin sets pricing for destination bookings (idempotent - only first time)
+3. **Payment Link** (payment_link): Sent to customer when admin triggers payment link (includes Stripe payment URL)
+4. **Payment Confirmation** (payment_confirmation): Sent to customer when payment completes via Stripe webhook
+5. **Driver Assignment** (driver_assignment): Sent to driver when admin assigns them to a booking
 
 **Key Files:**
 - `server/resendClient.ts`: Resend API client
-- `server/emailService.ts`: Email template generation and sending functions
+- `server/emailService.ts`: Email template generation and sending with database template support
+- `client/src/pages/AdminEmails.tsx`: Admin email template management UI

@@ -36,24 +36,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Building2, DollarSign, Upload, FileSpreadsheet, AlertCircle, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, DollarSign, ArrowUpDown } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Hotel, InsertHotel, Zone, Port } from "@shared/schema";
 
 interface PortWithRate extends Port {
   price: string | null;
-}
-
-interface BulkImportResult {
-  created: number;
-  errors: { row: number; name: string; error: string }[];
-}
-
-interface RateImportResult {
-  created: number;
-  updated: number;
-  errors: { row: number; name: string; error: string }[];
 }
 
 export default function AdminHotels() {
@@ -63,12 +52,6 @@ export default function AdminHotels() {
   const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false);
   const [pricingHotel, setPricingHotel] = useState<Hotel | null>(null);
   const [portRates, setPortRates] = useState<Record<string, string>>({});
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [csvContent, setCsvContent] = useState("");
-  const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
-  const [isRateImportDialogOpen, setIsRateImportDialogOpen] = useState(false);
-  const [rateCsvContent, setRateCsvContent] = useState("");
-  const [rateImportResult, setRateImportResult] = useState<RateImportResult | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Hotel; direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
   
   const [formData, setFormData] = useState<Partial<InsertHotel>>({
@@ -77,6 +60,16 @@ export default function AdminHotels() {
     zoneId: "",
     isActive: true,
   });
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      address: "",
+      zoneId: "",
+      isActive: true,
+    });
+    setEditingHotel(null);
+  };
 
   const { data: hotels, isLoading } = useQuery<Hotel[]>({
     queryKey: ["/api/admin/hotels"],
@@ -170,192 +163,6 @@ export default function AdminHotels() {
     savePortRatesMutation.mutate({ hotelId: pricingHotel.id, rates });
   };
 
-  const bulkImportMutation = useMutation({
-    mutationFn: async (hotels: { name: string; address: string; zone: string }[]) => {
-      const response = await apiRequest("POST", "/api/admin/hotels/bulk-import", { hotels });
-      return response.json();
-    },
-    onSuccess: (data: BulkImportResult) => {
-      setImportResult(data);
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/hotels"] });
-      if (data.created > 0) {
-        toast({ title: `Successfully imported ${data.created} hotels` });
-      }
-      if (data.errors.length > 0) {
-        toast({ 
-          title: `${data.errors.length} rows had errors`, 
-          variant: "destructive" 
-        });
-      }
-    },
-    onError: () => {
-      toast({ title: "Failed to import hotels", variant: "destructive" });
-    },
-  });
-
-  const parseCSV = (csv: string): { name: string; address: string; zone: string }[] => {
-    const lines = csv.trim().split('\n');
-    if (lines.length < 2) return [];
-    
-    const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-    const nameIndex = headers.findIndex(h => h === 'name' || h === 'hotel name' || h === 'hotel');
-    const addressIndex = headers.findIndex(h => h === 'address' || h === 'location');
-    const zoneIndex = headers.findIndex(h => h === 'zone' || h === 'area' || h === 'region');
-    
-    if (nameIndex === -1) return [];
-    
-    return lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
-      return {
-        name: values[nameIndex] || '',
-        address: addressIndex !== -1 ? values[addressIndex] || '' : '',
-        zone: zoneIndex !== -1 ? values[zoneIndex] || '' : '',
-      };
-    }).filter(row => row.name);
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      setCsvContent(text);
-      setImportResult(null);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleImport = () => {
-    const hotels = parseCSV(csvContent);
-    if (hotels.length === 0) {
-      toast({ 
-        title: "No valid rows found", 
-        description: "Make sure your CSV has a 'name' column",
-        variant: "destructive" 
-      });
-      return;
-    }
-    bulkImportMutation.mutate(hotels);
-  };
-
-  const resetImportDialog = () => {
-    setCsvContent("");
-    setImportResult(null);
-  };
-
-  // Rate import functions
-  const bulkImportRatesMutation = useMutation({
-    mutationFn: async (rates: { name: string; rateFromUVF: string; rateFromGFL: string; rateFromPortCastries: string }[]) => {
-      const response = await apiRequest("POST", "/api/admin/hotels/bulk-import-rates", { rates });
-      return response.json();
-    },
-    onSuccess: (data: RateImportResult) => {
-      setRateImportResult(data);
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/hotels"] });
-      if (data.created > 0 || data.updated > 0) {
-        toast({ 
-          title: `Successfully imported ${data.created + data.updated} rates`,
-          description: `${data.created} new, ${data.updated} updated`
-        });
-      }
-      if (data.errors.length > 0) {
-        toast({ 
-          title: `${data.errors.length} rows had errors`, 
-          variant: "destructive" 
-        });
-      }
-    },
-    onError: () => {
-      toast({ title: "Failed to import rates", variant: "destructive" });
-    },
-  });
-
-  const parseCSVLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"' && (i === 0 || line[i - 1] !== '\\')) {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim().replace(/^["']|["']$/g, ''));
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    result.push(current.trim().replace(/^["']|["']$/g, ''));
-    return result;
-  };
-
-  const parseRatesCSV = (csv: string): { name: string; rateFromUVF: string; rateFromGFL: string; rateFromPortCastries: string }[] => {
-    const lines = csv.trim().split('\n');
-    if (lines.length < 2) return [];
-    
-    const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
-    const nameIndex = headers.findIndex(h => h === 'name' || h === 'hotel name' || h === 'hotel');
-    const uvfIndex = headers.findIndex(h => h.includes('uvf') || h.includes('hewanorra'));
-    const gflIndex = headers.findIndex(h => h.includes('gfl') || h.includes('slu') || h.includes('george'));
-    const portCastriesIndex = headers.findIndex(h => h.includes('port_castries') || h.includes('port castries') || (h.includes('castries') && !h.includes('port')));
-    
-    if (nameIndex === -1) return [];
-    
-    return lines.slice(1).map(line => {
-      const values = parseCSVLine(line);
-      return {
-        name: values[nameIndex] || '',
-        rateFromUVF: uvfIndex !== -1 ? values[uvfIndex] || '' : '',
-        rateFromGFL: gflIndex !== -1 ? values[gflIndex] || '' : '',
-        rateFromPortCastries: portCastriesIndex !== -1 ? values[portCastriesIndex] || '' : '',
-      };
-    }).filter(row => row.name);
-  };
-
-  const handleRateFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      setRateCsvContent(text);
-      setRateImportResult(null);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleRateImport = () => {
-    const rates = parseRatesCSV(rateCsvContent);
-    if (rates.length === 0) {
-      toast({ 
-        title: "No valid rows found", 
-        description: "Make sure your CSV has a 'name' column and rate columns",
-        variant: "destructive" 
-      });
-      return;
-    }
-    bulkImportRatesMutation.mutate(rates);
-  };
-
-  const resetRateImportDialog = () => {
-    setRateCsvContent("");
-    setRateImportResult(null);
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      address: "",
-      zoneId: "",
-      isActive: true,
-    });
-    setEditingHotel(null);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -428,22 +235,6 @@ export default function AdminHotels() {
             <p className="text-muted-foreground mt-1">Manage pickup/dropoff hotel locations</p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              data-testid="button-import-hotels"
-              onClick={() => setIsImportDialogOpen(true)}
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Import Hotels
-            </Button>
-            <Button 
-              variant="outline" 
-              data-testid="button-import-rates"
-              onClick={() => setIsRateImportDialogOpen(true)}
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Import Rates
-            </Button>
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
               setIsDialogOpen(open);
               if (!open) resetForm();
@@ -613,7 +404,11 @@ export default function AdminHotels() {
                               variant="ghost"
                               size="icon"
                               data-testid={`button-delete-${hotel.id}`}
-                              onClick={() => deleteMutation.mutate(hotel.id)}
+                              onClick={() => {
+                                if (window.confirm("Are you sure you want to delete this hotel?")) {
+                                  deleteMutation.mutate(hotel.id);
+                                }
+                              }}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -639,239 +434,42 @@ export default function AdminHotels() {
             <DialogHeader>
               <DialogTitle>Port Pricing</DialogTitle>
               <DialogDescription>
-                Set transfer prices from each port to {pricingHotel?.name}
+                Set fixed rates for {pricingHotel?.name} from each arrival port
               </DialogDescription>
             </DialogHeader>
-            {isLoadingPorts ? (
-              <div className="text-center py-4 text-muted-foreground">Loading ports...</div>
-            ) : (
-              <div className="space-y-4">
-                {portsWithRates?.map((port) => (
-                  <div key={port.id} className="space-y-2">
-                    <Label htmlFor={`port-${port.id}`} className="flex items-center justify-between">
-                      <span>{port.name}</span>
-                      <Badge variant="outline" className="text-xs">{port.code}</Badge>
+            
+            <div className="space-y-4 py-4">
+              {isLoadingPorts ? (
+                <div className="text-center py-4">Loading ports...</div>
+              ) : (
+                portsWithRates?.map((port) => (
+                  <div key={port.id} className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor={`port-${port.id}`} className="col-span-2">
+                      {port.name}
                     </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <div className="col-span-2 relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                       <Input
                         id={`port-${port.id}`}
-                        data-testid={`input-port-price-${port.code}`}
                         type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder={port.price || "Not set"}
-                        value={portRates[port.id] ?? (port.price || "")}
-                        onChange={(e) => setPortRates({ ...portRates, [port.id]: e.target.value })}
                         className="pl-7"
+                        placeholder="0.00"
+                        value={portRates[port.id] ?? port.price ?? ""}
+                        onChange={(e) => setPortRates({ ...portRates, [port.id]: e.target.value })}
                       />
                     </div>
                   </div>
-                ))}
-                <Button
-                  className="w-full"
-                  data-testid="button-save-port-rates"
-                  onClick={handleSavePortRates}
-                  disabled={savePortRatesMutation.isPending}
-                >
-                  {savePortRatesMutation.isPending ? "Saving..." : "Save Port Prices"}
-                </Button>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={isImportDialogOpen} onOpenChange={(open) => {
-          setIsImportDialogOpen(open);
-          if (!open) resetImportDialog();
-        }}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5" />
-                Import Hotels from CSV
-              </DialogTitle>
-              <DialogDescription>
-                Upload a CSV file with columns: name, address, zone
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="csv-upload"
-                  data-testid="input-csv-upload"
-                />
-                <label htmlFor="csv-upload" className="cursor-pointer">
-                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    {csvContent ? "File loaded - click to replace" : "Click to select CSV file"}
-                  </p>
-                </label>
-              </div>
-
-              {csvContent && (
-                <div className="bg-muted/50 rounded-md p-3">
-                  <p className="text-sm font-medium mb-1">Preview</p>
-                  <p className="text-xs text-muted-foreground">
-                    {parseCSV(csvContent).length} hotels found in file
-                  </p>
-                </div>
+                ))
               )}
-
-              {importResult && (
-                <div className="space-y-2">
-                  {importResult.created > 0 && (
-                    <div className="bg-primary/10 rounded-md p-3">
-                      <p className="text-sm text-primary font-medium">
-                        Successfully imported {importResult.created} hotels
-                      </p>
-                    </div>
-                  )}
-                  {importResult.errors.length > 0 && (
-                    <div className="bg-destructive/10 rounded-md p-3 space-y-1">
-                      <p className="text-sm text-destructive font-medium flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {importResult.errors.length} errors
-                      </p>
-                      <div className="max-h-32 overflow-y-auto text-xs space-y-1">
-                        {importResult.errors.map((err, i) => (
-                          <p key={i} className="text-destructive/80">
-                            Row {err.row}: {err.name} - {err.error}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="bg-muted/30 rounded-md p-3">
-                <p className="text-xs text-muted-foreground">
-                  <strong>CSV Format:</strong> The file should have headers like "name", "address", "zone". 
-                  Zone names must match exactly with existing zones in the system.
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setIsImportDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1"
-                  data-testid="button-import-submit"
-                  onClick={handleImport}
-                  disabled={!csvContent || bulkImportMutation.isPending}
-                >
-                  {bulkImportMutation.isPending ? "Importing..." : "Import Hotels"}
-                </Button>
-              </div>
             </div>
-          </DialogContent>
-        </Dialog>
 
-        <Dialog open={isRateImportDialogOpen} onOpenChange={(open) => {
-          setIsRateImportDialogOpen(open);
-          if (!open) resetRateImportDialog();
-        }}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
-                Import Pricing Rates from CSV
-              </DialogTitle>
-              <DialogDescription>
-                Upload a CSV file with columns: name, rate from UVF, rate from GFL, rate from PORT_Castries
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleRateFileUpload}
-                  className="hidden"
-                  id="rate-csv-upload"
-                  data-testid="input-rate-csv-upload"
-                />
-                <label htmlFor="rate-csv-upload" className="cursor-pointer">
-                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    {rateCsvContent ? "File loaded - click to replace" : "Click to select CSV file"}
-                  </p>
-                </label>
-              </div>
-
-              {rateCsvContent && (
-                <div className="bg-muted/50 rounded-md p-3">
-                  <p className="text-sm font-medium mb-1">Preview</p>
-                  <p className="text-xs text-muted-foreground">
-                    {parseRatesCSV(rateCsvContent).length} hotel rates found in file
-                  </p>
-                </div>
-              )}
-
-              {rateImportResult && (
-                <div className="space-y-2">
-                  {(rateImportResult.created > 0 || rateImportResult.updated > 0) && (
-                    <div className="bg-primary/10 rounded-md p-3">
-                      <p className="text-sm text-primary font-medium">
-                        Successfully imported: {rateImportResult.created} new, {rateImportResult.updated} updated
-                      </p>
-                    </div>
-                  )}
-                  {rateImportResult.errors.length > 0 && (
-                    <div className="bg-destructive/10 rounded-md p-3 space-y-1">
-                      <p className="text-sm text-destructive font-medium flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {rateImportResult.errors.length} errors
-                      </p>
-                      <div className="max-h-32 overflow-y-auto text-xs space-y-1">
-                        {rateImportResult.errors.map((err, i) => (
-                          <p key={i} className="text-destructive/80">
-                            Row {err.row}: {err.name} - {err.error}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="bg-muted/30 rounded-md p-3">
-                <p className="text-xs text-muted-foreground">
-                  <strong>CSV Format:</strong> The file should have headers like "name", "rate from UVF", "rate from GFL", "rate from PORT_Castries". 
-                  Hotel names must match exactly with existing hotels in the system. Existing rates will be overwritten.
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setIsRateImportDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1"
-                  data-testid="button-rate-import-submit"
-                  onClick={handleRateImport}
-                  disabled={!rateCsvContent || bulkImportRatesMutation.isPending}
-                >
-                  {bulkImportRatesMutation.isPending ? "Importing..." : "Import Rates"}
-                </Button>
-              </div>
-            </div>
+            <Button 
+              onClick={handleSavePortRates}
+              disabled={savePortRatesMutation.isPending}
+              className="w-full"
+            >
+              {savePortRatesMutation.isPending ? "Saving..." : "Save Prices"}
+            </Button>
           </DialogContent>
         </Dialog>
       </div>

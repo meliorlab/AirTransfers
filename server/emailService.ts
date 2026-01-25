@@ -1,4 +1,14 @@
 import { getUncachableResendClient } from './resendClient';
+import { storage } from './storage';
+
+function replaceVariables(template: string, variables: Record<string, string | number>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(variables)) {
+    const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+    result = result.replace(regex, String(value));
+  }
+  return result;
+}
 
 export class EmailService {
   async sendBookingConfirmation(booking: {
@@ -20,11 +30,31 @@ export class EmailService {
       ? `$${booking.totalAmount || '30.00'}` 
       : 'Quote pending - we will contact you shortly';
 
-    const { data, error } = await client.emails.send({
-      from: fromEmail,
-      to: booking.customerEmail,
-      subject: `Booking Confirmation - ${booking.referenceNumber}`,
-      html: `
+    const template = await storage.getEmailTemplateByKey('booking_confirmation');
+    
+    const variables = {
+      customerName: booking.customerName,
+      referenceNumber: booking.referenceNumber,
+      pickupDate: booking.pickupDate,
+      pickupTime: booking.pickupTime,
+      pickupLocation: booking.pickupLocation,
+      dropoffLocation: booking.dropoffLocation,
+      passengers: booking.passengers,
+      totalAmount: priceText,
+    };
+
+    let subject: string;
+    let html: string;
+
+    if (template && template.isActive) {
+      subject = replaceVariables(template.subject, variables);
+      html = replaceVariables(template.body, variables);
+      if (!isHotelBooking) {
+        html += '<p style="color: #666;">For destination link bookings, our team will review your request and send you a custom quote shortly.</p>';
+      }
+    } else {
+      subject = `Booking Confirmation - ${booking.referenceNumber}`;
+      html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #1a1a2e;">Booking Confirmation</h1>
           <p>Dear ${booking.customerName},</p>
@@ -47,7 +77,14 @@ export class EmailService {
           <p>If you have any questions, please don't hesitate to contact us.</p>
           <p>Best regards,<br>The AirTransfer Team</p>
         </div>
-      `
+      `;
+    }
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: booking.customerEmail,
+      subject,
+      html,
     });
 
     if (error) {
@@ -67,11 +104,24 @@ export class EmailService {
   }) {
     const { client, fromEmail } = await getUncachableResendClient();
 
-    const { data, error } = await client.emails.send({
-      from: fromEmail,
-      to: booking.customerEmail,
-      subject: `Payment Required - Booking ${booking.referenceNumber}`,
-      html: `
+    const template = await storage.getEmailTemplateByKey('payment_link');
+    
+    const variables = {
+      customerName: booking.customerName,
+      referenceNumber: booking.referenceNumber,
+      totalAmount: booking.totalAmount,
+      paymentLink: booking.paymentLink,
+    };
+
+    let subject: string;
+    let html: string;
+
+    if (template && template.isActive) {
+      subject = replaceVariables(template.subject, variables);
+      html = replaceVariables(template.body, variables);
+    } else {
+      subject = `Payment Required - Booking ${booking.referenceNumber}`;
+      html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #1a1a2e;">Payment Required</h1>
           <p>Dear ${booking.customerName},</p>
@@ -92,7 +142,14 @@ export class EmailService {
           
           <p>Best regards,<br>The AirTransfer Team</p>
         </div>
-      `
+      `;
+    }
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: booking.customerEmail,
+      subject,
+      html,
     });
 
     if (error) {
@@ -113,11 +170,25 @@ export class EmailService {
   }) {
     const { client, fromEmail } = await getUncachableResendClient();
 
-    const { data, error } = await client.emails.send({
-      from: fromEmail,
-      to: booking.customerEmail,
-      subject: `Your Quote is Ready - Booking ${booking.referenceNumber}`,
-      html: `
+    const template = await storage.getEmailTemplateByKey('quote_notification');
+    
+    const variables = {
+      customerName: booking.customerName,
+      referenceNumber: booking.referenceNumber,
+      bookingFee: booking.bookingFee,
+      driverFee: booking.driverFee,
+      totalAmount: booking.totalAmount,
+    };
+
+    let subject: string;
+    let html: string;
+
+    if (template && template.isActive) {
+      subject = replaceVariables(template.subject, variables);
+      html = replaceVariables(template.body, variables);
+    } else {
+      subject = `Your Quote is Ready - Booking ${booking.referenceNumber}`;
+      html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #1a1a2e;">Your Quote is Ready</h1>
           <p>Dear ${booking.customerName},</p>
@@ -134,7 +205,14 @@ export class EmailService {
           
           <p>Best regards,<br>The AirTransfer Team</p>
         </div>
-      `
+      `;
+    }
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: booking.customerEmail,
+      subject,
+      html,
     });
 
     if (error) {
@@ -156,11 +234,26 @@ export class EmailService {
   }) {
     const { client, fromEmail } = await getUncachableResendClient();
 
-    const { data, error } = await client.emails.send({
-      from: fromEmail,
-      to: booking.customerEmail,
-      subject: `Payment Confirmed - Booking ${booking.referenceNumber}`,
-      html: `
+    const template = await storage.getEmailTemplateByKey('payment_confirmation');
+    
+    const variables = {
+      customerName: booking.customerName,
+      referenceNumber: booking.referenceNumber,
+      pickupDate: booking.pickupDate,
+      pickupLocation: booking.pickupLocation,
+      dropoffLocation: booking.dropoffLocation,
+      totalAmount: booking.totalAmount,
+    };
+
+    let subject: string;
+    let html: string;
+
+    if (template && template.isActive) {
+      subject = replaceVariables(template.subject, variables);
+      html = replaceVariables(template.body, variables);
+    } else {
+      subject = `Payment Confirmed - Booking ${booking.referenceNumber}`;
+      html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #22c55e;">Payment Confirmed!</h1>
           <p>Dear ${booking.customerName},</p>
@@ -179,7 +272,14 @@ export class EmailService {
           <p>If you have any questions, please don't hesitate to contact us.</p>
           <p>Best regards,<br>The AirTransfer Team</p>
         </div>
-      `
+      `;
+    }
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: booking.customerEmail,
+      subject,
+      html,
     });
 
     if (error) {
@@ -207,11 +307,31 @@ export class EmailService {
   }) {
     const { client, fromEmail } = await getUncachableResendClient();
 
-    const { data, error } = await client.emails.send({
-      from: fromEmail,
-      to: driver.driverEmail,
-      subject: `New Trip Assignment - ${booking.referenceNumber}`,
-      html: `
+    const template = await storage.getEmailTemplateByKey('driver_assignment');
+    
+    const variables = {
+      driverName: driver.driverName,
+      referenceNumber: booking.referenceNumber,
+      customerName: booking.customerName,
+      customerPhone: booking.customerPhone,
+      pickupDate: booking.pickupDate,
+      pickupLocation: booking.pickupLocation,
+      dropoffLocation: booking.dropoffLocation,
+      partySize: booking.partySize,
+      flightNumber: booking.flightNumber,
+      vehicleClass: booking.vehicleClass,
+      driverFee: booking.driverFee,
+    };
+
+    let subject: string;
+    let html: string;
+
+    if (template && template.isActive) {
+      subject = replaceVariables(template.subject, variables);
+      html = replaceVariables(template.body, variables);
+    } else {
+      subject = `New Trip Assignment - ${booking.referenceNumber}`;
+      html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #1a1a2e;">New Trip Assignment</h1>
           <p>Dear ${driver.driverName},</p>
@@ -241,7 +361,14 @@ export class EmailService {
           <p>Please confirm your availability and contact the customer if needed.</p>
           <p>Best regards,<br>The AirTransfer Team</p>
         </div>
-      `
+      `;
+    }
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: driver.driverEmail,
+      subject,
+      html,
     });
 
     if (error) {

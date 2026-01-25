@@ -22,6 +22,7 @@ import {
   Building2,
   LogOut,
   Settings,
+  Mail,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +34,7 @@ const menuItems = [
   { title: "Zones", url: "/admin/zones", icon: MapPin },
   { title: "Rates", url: "/admin/rates", icon: DollarSign },
   { title: "Pricing Rules", url: "/admin/pricing-rules", icon: Tag },
+  { title: "Emails", url: "/admin/emails", icon: Mail },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 

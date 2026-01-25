@@ -10,6 +10,7 @@ import {
   insertPricingRuleSchema,
   insertBookingSchema,
   insertSettingSchema,
+  insertEmailTemplateSchema,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { z } from "zod";
@@ -947,6 +948,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Email Templates API
+  app.get("/api/admin/email-templates", requireAdmin, async (req: Request, res: Response) => {
+    const templates = await storage.getAllEmailTemplates();
+    res.json(templates);
+  });
+
+  app.get("/api/admin/email-templates/:id", requireAdmin, async (req: Request, res: Response) => {
+    const template = await storage.getEmailTemplate(req.params.id);
+    if (!template) {
+      return res.status(404).json({ error: "Email template not found" });
+    }
+    res.json(template);
+  });
+
+  app.put("/api/admin/email-templates/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const updateSchema = z.object({
+        subject: z.string().min(1).optional(),
+        body: z.string().min(1).optional(),
+        isActive: z.boolean().optional(),
+      });
+      
+      const validatedData = updateSchema.parse(req.body);
+      const template = await storage.updateEmailTemplate(req.params.id, validatedData);
+      if (!template) {
+        return res.status(404).json({ error: "Email template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid template data", details: error.errors });
+      }
+      res.status(400).json({ error: "Failed to update template" });
+    }
+  });
+
   // Public settings endpoint for pricing calculations
   app.get("/api/settings/large-party-surcharge", async (req: Request, res: Response) => {
     const surchargeAmount = await storage.getSetting("large_party_surcharge_amount");
@@ -1155,6 +1192,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
   
   initDefaultSettings().catch(console.error);
+
+  // Initialize default email templates if not exist
+  const initDefaultEmailTemplates = async () => {
+    const existingTemplates = await storage.getAllEmailTemplates();
+    if (existingTemplates.length > 0) return;
+
+    const defaultTemplates = [
+      {
+        templateKey: "booking_confirmation",
+        name: "Booking Confirmation",
+        subject: "Booking Confirmation - {{referenceNumber}}",
+        body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <h1 style="color: #1a1a2e;">Booking Confirmation</h1>
+  <p>Dear {{customerName}},</p>
+  <p>Thank you for booking with AirTransfer! Here are your booking details:</p>
+  
+  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <p><strong>Reference Number:</strong> {{referenceNumber}}</p>
+    <p><strong>Pickup Date:</strong> {{pickupDate}}</p>
+    <p><strong>Pickup Time:</strong> {{pickupTime}}</p>
+    <p><strong>Pickup Location:</strong> {{pickupLocation}}</p>
+    <p><strong>Dropoff Location:</strong> {{dropoffLocation}}</p>
+    <p><strong>Passengers:</strong> {{passengers}}</p>
+    <p><strong>Total:</strong> {{totalAmount}}</p>
+  </div>
+  
+  <p>If you have any questions, please don't hesitate to contact us.</p>
+  <p>Best regards,<br>The AirTransfer Team</p>
+</div>`,
+        triggerDescription: "Sent when a customer completes a booking",
+        recipientType: "customer",
+        availableVariables: ["customerName", "referenceNumber", "pickupDate", "pickupTime", "pickupLocation", "dropoffLocation", "passengers", "totalAmount"],
+      },
+      {
+        templateKey: "quote_notification",
+        name: "Quote Ready",
+        subject: "Your Quote is Ready - Booking {{referenceNumber}}",
+        body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <h1 style="color: #1a1a2e;">Your Quote is Ready</h1>
+  <p>Dear {{customerName}},</p>
+  <p>Great news! We've prepared a quote for your airport transfer:</p>
+  
+  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <p><strong>Reference Number:</strong> {{referenceNumber}}</p>
+    <p><strong>Booking Fee:</strong> \${{bookingFee}}</p>
+    <p><strong>Driver Fee:</strong> \${{driverFee}}</p>
+    <p style="font-size: 18px; color: #1a1a2e;"><strong>Total Amount:</strong> \${{totalAmount}}</p>
+  </div>
+  
+  <p>A payment link will be sent to you shortly to complete your booking.</p>
+  
+  <p>Best regards,<br>The AirTransfer Team</p>
+</div>`,
+        triggerDescription: "Sent when admin sets pricing for destination bookings",
+        recipientType: "customer",
+        availableVariables: ["customerName", "referenceNumber", "bookingFee", "driverFee", "totalAmount"],
+      },
+      {
+        templateKey: "payment_link",
+        name: "Payment Link",
+        subject: "Payment Required - Booking {{referenceNumber}}",
+        body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <h1 style="color: #1a1a2e;">Payment Required</h1>
+  <p>Dear {{customerName}},</p>
+  <p>Your booking quote is ready! Please complete your payment to confirm your transfer.</p>
+  
+  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <p><strong>Reference Number:</strong> {{referenceNumber}}</p>
+    <p><strong>Total Amount:</strong> \${{totalAmount}}</p>
+  </div>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="{{paymentLink}}" style="background: #4f46e5; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+      Pay Now
+    </a>
+  </div>
+  
+  <p style="color: #666; font-size: 14px;">This payment link will expire in 24 hours.</p>
+  
+  <p>Best regards,<br>The AirTransfer Team</p>
+</div>`,
+        triggerDescription: "Sent when admin generates payment link for destination bookings",
+        recipientType: "customer",
+        availableVariables: ["customerName", "referenceNumber", "totalAmount", "paymentLink"],
+      },
+      {
+        templateKey: "payment_confirmation",
+        name: "Payment Confirmation",
+        subject: "Payment Confirmed - Booking {{referenceNumber}}",
+        body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <h1 style="color: #22c55e;">Payment Confirmed!</h1>
+  <p>Dear {{customerName}},</p>
+  <p>Thank you! Your payment has been successfully processed for your airport transfer.</p>
+  
+  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <p><strong>Reference Number:</strong> {{referenceNumber}}</p>
+    <p><strong>Pickup Date:</strong> {{pickupDate}}</p>
+    <p><strong>Pickup Location:</strong> {{pickupLocation}}</p>
+    <p><strong>Dropoff Location:</strong> {{dropoffLocation}}</p>
+    <p><strong>Amount Paid:</strong> \${{totalAmount}}</p>
+  </div>
+  
+  <p>Your driver details will be sent to you closer to your pickup date.</p>
+  
+  <p>If you have any questions, please don't hesitate to contact us.</p>
+  <p>Best regards,<br>The AirTransfer Team</p>
+</div>`,
+        triggerDescription: "Sent when customer completes payment via Stripe",
+        recipientType: "customer",
+        availableVariables: ["customerName", "referenceNumber", "pickupDate", "pickupLocation", "dropoffLocation", "totalAmount"],
+      },
+      {
+        templateKey: "driver_assignment",
+        name: "Driver Assignment",
+        subject: "New Trip Assignment - {{referenceNumber}}",
+        body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <h1 style="color: #1a1a2e;">New Trip Assignment</h1>
+  <p>Dear {{driverName}},</p>
+  <p>You have been assigned a new transfer. Please review the details below:</p>
+  
+  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <h3 style="margin-top: 0;">Trip Details</h3>
+    <p><strong>Reference Number:</strong> {{referenceNumber}}</p>
+    <p><strong>Pickup Date:</strong> {{pickupDate}}</p>
+    <p><strong>Pickup Location:</strong> {{pickupLocation}}</p>
+    <p><strong>Dropoff Location:</strong> {{dropoffLocation}}</p>
+    <p><strong>Flight Number:</strong> {{flightNumber}}</p>
+    <p><strong>Vehicle Class:</strong> {{vehicleClass}}</p>
+    <p><strong>Party Size:</strong> {{partySize}} passenger(s)</p>
+  </div>
+  
+  <div style="background: #e0f2fe; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <h3 style="margin-top: 0;">Customer Information</h3>
+    <p><strong>Name:</strong> {{customerName}}</p>
+    <p><strong>Phone:</strong> {{customerPhone}}</p>
+  </div>
+  
+  <div style="background: #dcfce7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <p style="font-size: 18px; margin: 0;"><strong>Your Fee:</strong> \${{driverFee}}</p>
+  </div>
+  
+  <p>Please confirm your availability and contact the customer if needed.</p>
+  <p>Best regards,<br>The AirTransfer Team</p>
+</div>`,
+        triggerDescription: "Sent to driver when admin assigns them to a booking",
+        recipientType: "driver",
+        availableVariables: ["driverName", "referenceNumber", "pickupDate", "pickupLocation", "dropoffLocation", "flightNumber", "vehicleClass", "partySize", "customerName", "customerPhone", "driverFee"],
+      },
+    ];
+
+    for (const template of defaultTemplates) {
+      await storage.createEmailTemplate(template);
+    }
+    console.log("Default email templates seeded");
+  };
+  
+  initDefaultEmailTemplates().catch(console.error);
 
   const httpServer = createServer(app);
   return httpServer;

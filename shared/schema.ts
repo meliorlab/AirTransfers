@@ -295,3 +295,25 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Email Templates
+export const emailTemplates = pgTable("email_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateKey: text("template_key").notNull().unique(), // booking_confirmation, quote_notification, etc.
+  name: text("name").notNull(), // Human-readable name
+  subject: text("subject").notNull(),
+  body: text("body").notNull(), // HTML content with placeholders
+  triggerDescription: text("trigger_description").notNull(),
+  recipientType: text("recipient_type").notNull(), // customer, driver, admin
+  availableVariables: text("available_variables").array().notNull(), // List of placeholder variables
+  isActive: boolean("is_active").notNull().default(true),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+export type EmailTemplate = typeof emailTemplates.$inferSelect;

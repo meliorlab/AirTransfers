@@ -67,7 +67,14 @@ export default function AdminBookings() {
   const [bookingFee, setBookingFee] = useState("");
   const [driverFee, setDriverFee] = useState("");
   
-  const calculatedTotal = (parseFloat(bookingFee) || 0) + (parseFloat(driverFee) || 0);
+  const { data: taxSettings } = useQuery<{ percentage: string }>({
+    queryKey: ["/api/settings/tax"],
+  });
+  
+  const taxPercentage = parseFloat(taxSettings?.percentage || "0");
+  const subtotal = (parseFloat(bookingFee) || 0) + (parseFloat(driverFee) || 0);
+  const taxAmount = subtotal * (taxPercentage / 100);
+  const calculatedTotal = subtotal + taxAmount;
 
   const { data: bookings, isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/admin/bookings", { status: statusFilter, search: searchQuery }],
@@ -75,11 +82,9 @@ export default function AdminBookings() {
 
   const pricingMutation = useMutation({
     mutationFn: async (data: { id: string; bookingFee: string; driverFee: string }) => {
-      const total = (parseFloat(data.bookingFee) || 0) + (parseFloat(data.driverFee) || 0);
       const response = await apiRequest("PATCH", `/api/admin/bookings/${data.id}/pricing`, {
         bookingFee: data.bookingFee,
         driverFee: data.driverFee,
-        totalAmount: total.toFixed(2),
         balanceDueToDriver: data.driverFee,
       });
       return response.json();
@@ -375,14 +380,24 @@ export default function AdminBookings() {
               </div>
               
               <div className="bg-primary/10 rounded-md p-4 border border-primary/20">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Total Price</span>
-                  <span className="text-2xl font-bold text-primary" data-testid="text-calculated-total">
-                    ${calculatedTotal.toFixed(2)}
-                  </span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal (Booking Fee + Driver Fee)</span>
+                    <span data-testid="text-subtotal">${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Tax ({taxPercentage}%)</span>
+                    <span data-testid="text-tax-amount">${taxAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-primary/20 pt-2 flex items-center justify-between">
+                    <span className="font-medium">Total Price</span>
+                    <span className="text-2xl font-bold text-primary" data-testid="text-calculated-total">
+                      ${calculatedTotal.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Booking Fee + Driver Fee = Total
+                <p className="text-xs text-muted-foreground mt-2">
+                  Booking Fee + Driver Fee + Tax = Total
                 </p>
               </div>
             </div>

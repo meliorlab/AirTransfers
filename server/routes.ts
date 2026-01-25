@@ -722,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update booking pricing (admin only)
   app.patch("/api/admin/bookings/:id/pricing", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const { bookingFee, driverFee, totalAmount, balanceDueToDriver } = req.body;
+      const { bookingFee, driverFee, balanceDueToDriver } = req.body;
       
       // Get booking before update to check if this is first time setting pricing
       const existingBooking = await storage.getBooking(req.params.id);
@@ -731,11 +731,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const isFirstPricingSet = !existingBooking.pricingSet;
       
+      // Calculate total with tax on server side
+      const taxPercentageSetting = await storage.getSetting("tax_percentage");
+      const taxPercentage = parseFloat(taxPercentageSetting?.value || "0");
+      const subtotal = (parseFloat(bookingFee) || 0) + (parseFloat(driverFee) || 0);
+      const taxAmount = subtotal * (taxPercentage / 100);
+      const totalAmount = (subtotal + taxAmount).toFixed(2);
+      
       const booking = await storage.updateBookingPricing(req.params.id, {
         bookingFee,
         driverFee,
         totalAmount,
-        balanceDueToDriver,
+        balanceDueToDriver: balanceDueToDriver || driverFee,
         pricingSet: true,
       });
       

@@ -91,7 +91,7 @@ export default function Footer() {
         </div>
 
         <div className="pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          <p data-testid="text-copyright">© 2025 AirTransfer. All rights reserved.</p>
+          <p data-testid="text-copyright">© 2025 Island Port Transfers. All rights reserved.</p>
         </div>
       </div>
     </footer>

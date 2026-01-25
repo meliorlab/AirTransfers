@@ -48,6 +48,7 @@ Preferred communication style: Simple, everyday language.
 
 **API Structure:**
 - Admin authentication: `/api/admin/login`, `/api/admin/logout`, `/api/admin/me`
+- Admin user management: `/api/admin/users` (GET, POST, PATCH, DELETE)
 - Resource management endpoints for drivers, zones, rates, pricing rules, and bookings
 - CRUD operations with proper HTTP methods (GET, POST, PUT, DELETE)
 
@@ -107,6 +108,8 @@ Preferred communication style: Simple, everyday language.
 
 **Admin Authentication:**
 - Username/password-based login with bcrypt password hashing
+- Multiple admin users supported with full CRUD management via Admin Users page
+- Self-deletion protection prevents admins from deleting their own accounts
 - Session management using express-session
 - Session data stored server-side (session middleware configured but storage details in routes)
 - Protected admin routes requiring authenticated session

@@ -709,10 +709,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Send email notification to the customer
+      if (driver) {
+        try {
+          await emailService.sendDriverAssignmentToCustomer({
+            customerEmail: booking.customerEmail,
+            customerName: booking.customerName,
+            referenceNumber: booking.referenceNumber,
+            driverName: driver.name,
+            pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+            pickupLocation: booking.pickupLocation,
+            dropoffLocation: booking.dropoffLocation,
+          });
+        } catch (emailError) {
+          console.error("Failed to send driver assignment notification to customer:", emailError);
+        }
+      }
+      
       res.json({ 
         booking, 
         driver,
-        message: "Driver assigned successfully. Email notification sent to driver." 
+        message: "Driver assigned successfully. Email notifications sent to driver and customer." 
       });
     } catch (error) {
       res.status(400).json({ error: "Failed to assign driver" });
@@ -1479,6 +1496,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         triggerDescription: "Sent to driver when admin assigns them to a booking",
         recipientType: "driver",
         availableVariables: ["driverName", "referenceNumber", "pickupDate", "pickupLocation", "dropoffLocation", "flightNumber", "vehicleClass", "partySize", "customerName", "customerPhone", "driverFee"],
+      },
+      {
+        templateKey: "driver_assigned_customer",
+        name: "Driver Assigned (Customer)",
+        subject: "Your Driver Has Been Assigned - Booking {{referenceNumber}}",
+        body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <h1 style="color: #1a1a2e;">Your Driver Has Been Assigned</h1>
+  <p>Dear {{customerName}},</p>
+  <p>Great news! A driver has been assigned to your upcoming transfer.</p>
+  
+  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <p><strong>Reference Number:</strong> {{referenceNumber}}</p>
+    <p><strong>Driver Name:</strong> {{driverName}}</p>
+    <p><strong>Pickup Date:</strong> {{pickupDate}}</p>
+    <p><strong>Pickup Location:</strong> {{pickupLocation}}</p>
+    <p><strong>Dropoff Location:</strong> {{dropoffLocation}}</p>
+  </div>
+  
+  <p>Your driver will meet you at the designated pickup location. Please have your booking reference ready.</p>
+  
+  <p>If you have any questions, please don't hesitate to contact us.</p>
+  <p>Best regards,<br>The AirTransfer Team</p>
+</div>`,
+        triggerDescription: "Sent to customer when a driver is assigned to their booking",
+        recipientType: "customer",
+        availableVariables: ["customerName", "referenceNumber", "driverName", "pickupDate", "pickupLocation", "dropoffLocation"],
       },
     ];
 

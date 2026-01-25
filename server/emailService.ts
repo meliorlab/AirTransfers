@@ -378,6 +378,73 @@ export class EmailService {
 
     return data;
   }
+
+  async sendDriverAssignmentToCustomer(booking: {
+    customerEmail: string;
+    customerName: string;
+    referenceNumber: string;
+    driverName: string;
+    pickupDate: string;
+    pickupLocation: string;
+    dropoffLocation: string;
+  }) {
+    const { client, fromEmail } = await getUncachableResendClient();
+
+    const template = await storage.getEmailTemplateByKey('driver_assigned_customer');
+    
+    const variables = {
+      customerName: booking.customerName,
+      referenceNumber: booking.referenceNumber,
+      driverName: booking.driverName,
+      pickupDate: booking.pickupDate,
+      pickupLocation: booking.pickupLocation,
+      dropoffLocation: booking.dropoffLocation,
+    };
+
+    let subject: string;
+    let html: string;
+
+    if (template && template.isActive) {
+      subject = replaceVariables(template.subject, variables);
+      html = replaceVariables(template.body, variables);
+    } else {
+      subject = `Driver Assigned - Booking ${booking.referenceNumber}`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1a1a2e;">Your Driver Has Been Assigned</h1>
+          <p>Dear ${booking.customerName},</p>
+          <p>Great news! A driver has been assigned to your upcoming transfer.</p>
+          
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Reference Number:</strong> ${booking.referenceNumber}</p>
+            <p><strong>Driver Name:</strong> ${booking.driverName}</p>
+            <p><strong>Pickup Date:</strong> ${booking.pickupDate}</p>
+            <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
+            <p><strong>Dropoff Location:</strong> ${booking.dropoffLocation}</p>
+          </div>
+          
+          <p>Your driver will meet you at the designated pickup location. Please have your booking reference ready.</p>
+          
+          <p>If you have any questions, please don't hesitate to contact us.</p>
+          <p>Best regards,<br>The AirTransfer Team</p>
+        </div>
+      `;
+    }
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: booking.customerEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      console.error('Failed to send driver assignment notification to customer:', error);
+      throw error;
+    }
+
+    return data;
+  }
 }
 
 export const emailService = new EmailService();

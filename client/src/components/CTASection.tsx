@@ -12,7 +12,7 @@ export default function CTASection() {
         <h2 className="text-3xl lg:text-4xl font-heading font-semibold text-primary-foreground mb-4">
           Ready To Book Your Transfer?
         </h2>
-        <p className="text-primary-foreground/90 mb-8 text-lg">Join hundreds of satisfied customers who trust IslandPortTransfer for their airport transportation needs.</p>
+        <p className="text-primary-foreground/90 mb-8 text-lg">Join hundreds of satisfied customers who trust Island Port Transfer for their airport transportation needs.</p>
         <Button
           data-testid="button-book-now"
           size="lg"

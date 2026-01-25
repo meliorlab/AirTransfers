@@ -46,20 +46,23 @@ export class WebhookHandlers {
           await storage.updateBookingStatus(bookingId, 'paid_fee');
           console.log(`Booking ${booking.referenceNumber} status updated to paid_fee`);
           
-          // Send payment confirmation email
+          // Send booking confirmation email (this is the main confirmation for hotel bookings)
           try {
-            await emailService.sendPaymentConfirmation({
+            await emailService.sendBookingConfirmation({
               customerEmail: booking.customerEmail,
               customerName: booking.customerName,
               referenceNumber: booking.referenceNumber,
+              bookingType: booking.bookingType,
               pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+              pickupTime: '',
               pickupLocation: booking.pickupLocation,
               dropoffLocation: booking.dropoffLocation,
-              totalAmount: booking.totalAmount || "0",
+              passengers: booking.partySize,
+              totalAmount: booking.totalAmount || undefined,
             });
-            console.log(`Payment confirmation email sent for booking ${booking.referenceNumber}`);
+            console.log(`Booking confirmation email sent for booking ${booking.referenceNumber}`);
           } catch (emailError) {
-            console.error('Failed to send payment confirmation email:', emailError);
+            console.error('Failed to send booking confirmation email:', emailError);
           }
         }
       }

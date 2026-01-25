@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Users, Plane, Check, Link as LinkIcon, Building2, Mail, Ship } from "lucide-react";
+import { Calendar, MapPin, Users, Plane, Check, Link as LinkIcon, Building2, Mail, Ship, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,11 +9,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import heroImage from "@assets/generated_images/Airport_professional_greeting_scene_d42210f5.png";
 import type { Hotel, Port } from "@shared/schema";
 
@@ -35,6 +49,7 @@ export default function HeroSection() {
   
   // Hotel tab specific
   const [selectedHotel, setSelectedHotel] = useState("");
+  const [hotelSearchOpen, setHotelSearchOpen] = useState(false);
   
   // Destination link tab specific
   const [destinationLink, setDestinationLink] = useState("");
@@ -60,18 +75,26 @@ export default function HeroSection() {
     queryKey: ["/api/settings/large-party-surcharge"],
   });
 
-  // Calculate total price including surcharge
+  // Fetch tax settings
+  const { data: taxSettings } = useQuery<{ percentage: string }>({
+    queryKey: ["/api/settings/tax"],
+  });
+
+  // Calculate total price including surcharge and tax
   const calculateTotalPrice = () => {
     if (!portHotelRate?.price) return null;
     const basePrice = parseFloat(portHotelRate.price);
     const minPartySize = surchargeSettings ? parseInt(surchargeSettings.minPartySize) : 4;
     const surchargeAmount = surchargeSettings ? parseFloat(surchargeSettings.amount) : 20;
+    const taxPercentage = taxSettings ? parseInt(taxSettings.percentage) : 0;
     const currentPartySize = parseInt(partySize) || 1;
     
-    if (currentPartySize >= minPartySize) {
-      return { basePrice, surcharge: surchargeAmount, total: basePrice + surchargeAmount };
-    }
-    return { basePrice, surcharge: 0, total: basePrice };
+    const surcharge = currentPartySize >= minPartySize ? surchargeAmount : 0;
+    const subtotal = basePrice + surcharge;
+    const taxAmount = (subtotal * taxPercentage) / 100;
+    const total = subtotal + taxAmount;
+    
+    return { basePrice, surcharge, taxAmount, taxPercentage, total };
   };
 
   const getPickupLocation = () => {
@@ -272,25 +295,54 @@ export default function HeroSection() {
                         <Label className="text-sm font-medium mb-1.5 block">
                           Select Hotel <span className="text-destructive">*</span>
                         </Label>
-                        <Select value={selectedHotel} onValueChange={setSelectedHotel}>
-                          <SelectTrigger data-testid="select-hotel" className="h-12">
-                            <Building2 className="w-4 h-4 mr-2 text-muted-foreground" />
-                            <SelectValue placeholder="Choose your hotel" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {hotels?.map((hotel) => (
-                              <SelectItem key={hotel.id} value={hotel.id}>
-                                {hotel.name}
-                                {hotel.zone && <span className="text-muted-foreground"> - {hotel.zone}</span>}
-                              </SelectItem>
-                            ))}
-                            {(!hotels || hotels.length === 0) && (
-                              <SelectItem value="no-hotels" disabled>
-                                No hotels available
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={hotelSearchOpen} onOpenChange={setHotelSearchOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={hotelSearchOpen}
+                              data-testid="select-hotel"
+                              className="h-12 w-full justify-between font-normal"
+                            >
+                              <div className="flex items-center">
+                                <Building2 className="w-4 h-4 mr-2 text-muted-foreground" />
+                                {selectedHotel
+                                  ? hotels?.find((hotel) => hotel.id === selectedHotel)?.name
+                                  : "Search for your hotel..."}
+                              </div>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Type hotel name..." />
+                              <CommandList>
+                                <CommandEmpty>No hotel found.</CommandEmpty>
+                                <CommandGroup>
+                                  {hotels?.map((hotel) => (
+                                    <CommandItem
+                                      key={hotel.id}
+                                      value={hotel.name}
+                                      onSelect={() => {
+                                        setSelectedHotel(hotel.id);
+                                        setHotelSearchOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          selectedHotel === hotel.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {hotel.name}
+                                      {hotel.zone && <span className="text-muted-foreground ml-2">- {hotel.zone}</span>}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </TabsContent>
                     
@@ -541,12 +593,19 @@ export default function HeroSection() {
                                 <div className="text-center text-5xl font-bold text-primary mb-2">
                                   ${pricing.total.toFixed(2)}
                                 </div>
-                                {pricing.surcharge > 0 && (
+                                {(pricing.surcharge > 0 || pricing.taxAmount > 0) && (
                                   <div className="text-center text-sm text-muted-foreground mb-4">
                                     <span className="block">Base rate: ${pricing.basePrice.toFixed(2)}</span>
-                                    <span className="block text-amber-600 dark:text-amber-400">
-                                      + ${pricing.surcharge.toFixed(2)} large party fee ({partySize}+ travelers)
-                                    </span>
+                                    {pricing.surcharge > 0 && (
+                                      <span className="block text-amber-600 dark:text-amber-400">
+                                        + ${pricing.surcharge.toFixed(2)} large party fee ({partySize}+ travelers)
+                                      </span>
+                                    )}
+                                    {pricing.taxAmount > 0 && (
+                                      <span className="block text-muted-foreground">
+                                        + ${pricing.taxAmount.toFixed(2)} tax ({pricing.taxPercentage}%)
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                               </>

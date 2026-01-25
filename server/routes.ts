@@ -903,22 +903,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = insertBookingSchema.parse(bookingData);
       const booking = await storage.createBooking(data);
 
-      // Send booking confirmation email
-      try {
-        await emailService.sendBookingConfirmation({
-          customerEmail: booking.customerEmail,
-          customerName: booking.customerName,
-          referenceNumber: booking.referenceNumber,
-          bookingType: booking.bookingType,
-          pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
-          pickupTime: req.body.pickupTime || '',
-          pickupLocation: booking.pickupLocation,
-          dropoffLocation: booking.dropoffLocation,
-          passengers: booking.partySize,
-          totalAmount: booking.totalAmount || undefined,
-        });
-      } catch (emailError) {
-        console.error("Failed to send booking confirmation email:", emailError);
+      // For destination bookings, send confirmation email immediately
+      // For hotel bookings, the confirmation email is sent after Stripe payment via webhook
+      if (isDestinationBooking) {
+        try {
+          await emailService.sendBookingConfirmation({
+            customerEmail: booking.customerEmail,
+            customerName: booking.customerName,
+            referenceNumber: booking.referenceNumber,
+            bookingType: booking.bookingType,
+            pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+            pickupTime: req.body.pickupTime || '',
+            pickupLocation: booking.pickupLocation,
+            dropoffLocation: booking.dropoffLocation,
+            passengers: booking.partySize,
+            totalAmount: booking.totalAmount || undefined,
+          });
+        } catch (emailError) {
+          console.error("Failed to send booking confirmation email:", emailError);
+        }
       }
 
       res.json(booking);

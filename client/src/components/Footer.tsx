@@ -83,7 +83,7 @@ export default function Footer() {
           <div>
             <h4 className="text-base font-heading font-semibold mb-4">Contact</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li data-testid="text-phone">+1 (234) 123-4567</li>
+              <li data-testid="text-phone">+1 (758) 519-2583</li>
               <li data-testid="text-email">contact@airtransfer.com</li>
               <li data-testid="text-support">24/7 Support</li>
             </ul>

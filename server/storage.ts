@@ -96,6 +96,7 @@ export interface IStorage {
   getAllBookings(filters?: { status?: string; search?: string }): Promise<Booking[]>;
   getBooking(id: string): Promise<Booking | undefined>;
   getBookingByReference(referenceNumber: string): Promise<Booking | undefined>;
+  getBookingByStripeSessionId(sessionId: string): Promise<Booking | undefined>;
   createBooking(booking: InsertBooking): Promise<Booking>;
   updateBooking(id: string, booking: Partial<InsertBooking>): Promise<Booking | undefined>;
   assignDriver(bookingId: string, driverId: string): Promise<Booking | undefined>;
@@ -370,6 +371,11 @@ export class DbStorage implements IStorage {
 
   async getBookingByReference(referenceNumber: string): Promise<Booking | undefined> {
     const result = await db.select().from(bookings).where(eq(bookings.referenceNumber, referenceNumber));
+    return result[0];
+  }
+
+  async getBookingByStripeSessionId(sessionId: string): Promise<Booking | undefined> {
+    const result = await db.select().from(bookings).where(eq(bookings.stripeSessionId, sessionId));
     return result[0];
   }
 

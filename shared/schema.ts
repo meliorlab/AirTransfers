@@ -186,6 +186,9 @@ export const bookings = pgTable("bookings", {
   paymentLinkSent: boolean("payment_link_sent").notNull().default(false),
   paymentLinkSentAt: timestamp("payment_link_sent_at"),
   
+  // Stripe
+  stripeSessionId: text("stripe_session_id"),
+  
   // Status
   status: text("status").notNull().default("new"), // new, paid_fee, driver_assigned, completed, canceled
   
@@ -219,6 +222,7 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   paymentLinkSentAt: true,
   driverId: true,
   assignedAt: true,
+  stripeSessionId: true,
 });
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;

@@ -967,6 +967,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Public endpoint to get booking by Stripe session ID (for confirmation page)
+  app.get("/api/booking-confirmation/:sessionId", async (req: Request, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      
+      if (!sessionId) {
+        return res.status(400).json({ error: "Session ID required" });
+      }
+      
+      // Try to find booking by session ID
+      const booking = await storage.getBookingByStripeSessionId(sessionId);
+      
+      if (!booking) {
+        // Booking might not be created yet (webhook hasn't processed)
+        return res.status(404).json({ error: "Booking not found. It may still be processing." });
+      }
+      
+      // Return only the fields needed for the confirmation page
+      res.json({
+        referenceNumber: booking.referenceNumber,
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        pickupLocation: booking.pickupLocation,
+        dropoffLocation: booking.dropoffLocation,
+        pickupDate: booking.pickupDate,
+        partySize: booking.partySize,
+        vehicleClass: booking.vehicleClass,
+        flightNumber: booking.flightNumber,
+        totalAmount: booking.totalAmount,
+      });
+    } catch (error) {
+      console.error("Error fetching booking confirmation:", error);
+      res.status(500).json({ error: "Failed to fetch booking" });
+    }
+  });
+
   // Hotel checkout - create Stripe checkout session (public endpoint)
   // SECURITY: Price is computed server-side using stored rates to prevent tampering
   app.post("/api/hotel-checkout", async (req: Request, res: Response) => {
@@ -1057,7 +1093,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         ],
         mode: 'payment',
-        success_url: `${origin}/?booking=success`,
+        success_url: `${origin}/booking/confirmation?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/?booking=cancelled`,
         customer_email: customerEmail,
         metadata: {

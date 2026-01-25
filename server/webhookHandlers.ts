@@ -93,6 +93,7 @@ export class WebhookHandlers {
           
           // Create the booking with server-validated data
           const referenceNumber = this.generateReferenceNumber();
+          const sessionId = session.id;
           
           const bookingData = {
             referenceNumber,
@@ -111,6 +112,7 @@ export class WebhookHandlers {
             totalAmount: expectedTotal.toFixed(2), // Use server-computed total
             pricingSet: true,
             status: 'paid_fee' as const,
+            stripeSessionId: sessionId,
           };
           
           const booking = await storage.createBooking(bookingData);

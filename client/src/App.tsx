@@ -13,6 +13,7 @@ import AdminZones from "@/pages/AdminZones";
 import AdminRates from "@/pages/AdminRates";
 import AdminPricingRules from "@/pages/AdminPricingRules";
 import AdminSettings from "@/pages/AdminSettings";
+import BookingConfirmation from "@/pages/BookingConfirmation";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/admin/rates" component={AdminRates} />
       <Route path="/admin/pricing-rules" component={AdminPricingRules} />
       <Route path="/admin/settings" component={AdminSettings} />
+      <Route path="/booking/confirmation" component={BookingConfirmation} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -984,6 +984,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send test email endpoint
+  app.post("/api/admin/email-templates/:id/send-test", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const testEmailSchema = z.object({
+        testEmail: z.string().email(),
+      });
+      
+      const { testEmail } = testEmailSchema.parse(req.body);
+      const template = await storage.getEmailTemplate(req.params.id);
+      
+      if (!template) {
+        return res.status(404).json({ error: "Email template not found" });
+      }
+
+      // Sample data for preview
+      const sampleVariables: Record<string, string> = {
+        customerName: "John Smith",
+        referenceNumber: "TEST-123456",
+        pickupDate: "March 15, 2026",
+        pickupTime: "2:30 PM",
+        pickupLocation: "Hewanorra International Airport (UVF)",
+        dropoffLocation: "Sandals Grande St. Lucian",
+        passengers: "4",
+        totalAmount: "$85.00",
+        bookingFee: "$30.00",
+        driverFee: "$55.00",
+        paymentLink: "https://example.com/pay/test-link",
+        driverName: "Marcus Joseph",
+        customerPhone: "+1 (555) 123-4567",
+        partySize: "4",
+        flightNumber: "AA 1234",
+        vehicleClass: "SUV",
+      };
+
+      // Replace variables in subject and body
+      let subject = template.subject;
+      let body = template.body;
+      
+      for (const [key, value] of Object.entries(sampleVariables)) {
+        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+        subject = subject.replace(regex, value);
+        body = body.replace(regex, value);
+      }
+
+      // Send test email using Resend
+      const { getUncachableResendClient } = await import('./resendClient');
+      const { client, fromEmail } = await getUncachableResendClient();
+      
+      const { data, error } = await client.emails.send({
+        from: fromEmail,
+        to: testEmail,
+        subject: `[TEST] ${subject}`,
+        html: body,
+      });
+
+      if (error) {
+        console.error('Failed to send test email:', error);
+        return res.status(500).json({ error: "Failed to send test email" });
+      }
+
+      res.json({ success: true, messageId: data?.id });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid email address", details: error.errors });
+      }
+      console.error('Error sending test email:', error);
+      res.status(500).json({ error: "Failed to send test email" });
+    }
+  });
+
+  // Get email template preview with sample data
+  app.get("/api/admin/email-templates/:id/preview", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const template = await storage.getEmailTemplate(req.params.id);
+      
+      if (!template) {
+        return res.status(404).json({ error: "Email template not found" });
+      }
+
+      // Sample data for preview
+      const sampleVariables: Record<string, string> = {
+        customerName: "John Smith",
+        referenceNumber: "TEST-123456",
+        pickupDate: "March 15, 2026",
+        pickupTime: "2:30 PM",
+        pickupLocation: "Hewanorra International Airport (UVF)",
+        dropoffLocation: "Sandals Grande St. Lucian",
+        passengers: "4",
+        totalAmount: "$85.00",
+        bookingFee: "$30.00",
+        driverFee: "$55.00",
+        paymentLink: "https://example.com/pay/test-link",
+        driverName: "Marcus Joseph",
+        customerPhone: "+1 (555) 123-4567",
+        partySize: "4",
+        flightNumber: "AA 1234",
+        vehicleClass: "SUV",
+      };
+
+      // Replace variables in subject and body
+      let subject = template.subject;
+      let body = template.body;
+      
+      for (const [key, value] of Object.entries(sampleVariables)) {
+        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+        subject = subject.replace(regex, value);
+        body = body.replace(regex, value);
+      }
+
+      // Strip HTML tags for plain text preview
+      const plainText = body
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, '\n')
+        .replace(/\n\s*\n/g, '\n\n')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .trim();
+
+      res.json({
+        subject,
+        htmlBody: body,
+        plainText,
+      });
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      res.status(500).json({ error: "Failed to generate preview" });
+    }
+  });
+
   // Public settings endpoint for pricing calculations
   app.get("/api/settings/large-party-surcharge", async (req: Request, res: Response) => {
     const surchargeAmount = await storage.getSetting("large_party_surcharge_amount");

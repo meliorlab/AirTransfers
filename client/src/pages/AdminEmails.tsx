@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import DOMPurify from "dompurify";
 import AdminLayout from "@/components/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,16 +30,30 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Mail, Edit, Users, Car, ShieldCheck, Zap, Info } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Mail, Edit, Users, Car, ShieldCheck, Zap, Info, Eye, Send } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { EmailTemplate } from "@shared/schema";
+
+interface PreviewData {
+  subject: string;
+  htmlBody: string;
+  plainText: string;
+}
 
 export default function AdminEmails() {
   const { toast } = useToast();
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [editSubject, setEditSubject] = useState("");
   const [editBody, setEditBody] = useState("");
+  
+  const [previewingTemplate, setPreviewingTemplate] = useState<EmailTemplate | null>(null);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [previewTab, setPreviewTab] = useState<string>("plain");
+  
+  const [sendTestTemplate, setSendTestTemplate] = useState<EmailTemplate | null>(null);
+  const [testEmail, setTestEmail] = useState("");
 
   const { data: templates = [], isLoading } = useQuery<EmailTemplate[]>({
     queryKey: ["/api/admin/email-templates"],
@@ -61,6 +76,22 @@ export default function AdminEmails() {
     },
   });
 
+  const sendTestMutation = useMutation({
+    mutationFn: async (data: { id: string; testEmail: string }) => {
+      return await apiRequest("POST", `/api/admin/email-templates/${data.id}/send-test`, {
+        testEmail: data.testEmail,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Test email sent successfully", description: `Email sent to ${testEmail}` });
+      setSendTestTemplate(null);
+      setTestEmail("");
+    },
+    onError: () => {
+      toast({ title: "Failed to send test email", variant: "destructive" });
+    },
+  });
+
   const handleEdit = (template: EmailTemplate) => {
     setEditingTemplate(template);
     setEditSubject(template.subject);
@@ -73,6 +104,39 @@ export default function AdminEmails() {
       id: editingTemplate.id,
       subject: editSubject,
       body: editBody,
+    });
+  };
+
+  const handlePreview = async (template: EmailTemplate) => {
+    setPreviewingTemplate(template);
+    setPreviewData(null);
+    try {
+      const response = await fetch(`/api/admin/email-templates/${template.id}/preview`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPreviewData(data);
+      } else {
+        toast({ title: "Failed to load preview", variant: "destructive" });
+        setPreviewingTemplate(null);
+      }
+    } catch {
+      toast({ title: "Failed to load preview", variant: "destructive" });
+      setPreviewingTemplate(null);
+    }
+  };
+
+  const handleSendTest = (template: EmailTemplate) => {
+    setSendTestTemplate(template);
+    setTestEmail("");
+  };
+
+  const handleSendTestConfirm = () => {
+    if (!sendTestTemplate || !testEmail) return;
+    sendTestMutation.mutate({
+      id: sendTestTemplate.id,
+      testEmail,
     });
   };
 
@@ -122,7 +186,7 @@ export default function AdminEmails() {
               About Email Templates
             </CardTitle>
             <CardDescription>
-              These templates are used for automated emails. Use placeholder variables (shown in curly braces) that will be replaced with actual booking data when emails are sent.
+              These templates are used for automated emails. Use placeholder variables (shown in curly braces) that will be replaced with actual booking data when emails are sent. You can preview templates with sample data or send test emails to verify formatting.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -179,15 +243,33 @@ export default function AdminEmails() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(template)}
-                        data-testid={`button-edit-${template.id}`}
-                      >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Edit
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handlePreview(template)}
+                          data-testid={`button-preview-${template.id}`}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleSendTest(template)}
+                          data-testid={`button-send-test-${template.id}`}
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(template)}
+                          data-testid={`button-edit-${template.id}`}
+                        >
+                          <Edit className="w-4 h-4 mr-1" />
+                          Edit
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -197,6 +279,7 @@ export default function AdminEmails() {
         )}
       </div>
 
+      {/* Edit Template Dialog */}
       <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -276,6 +359,118 @@ export default function AdminEmails() {
               data-testid="button-save-template"
             >
               {updateMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Template Dialog */}
+      <Dialog open={!!previewingTemplate} onOpenChange={(open) => !open && setPreviewingTemplate(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle data-testid="text-preview-dialog-title">Email Preview</DialogTitle>
+            <DialogDescription>
+              {previewingTemplate && (
+                <>
+                  Preview of <span className="font-medium">{previewingTemplate.name}</span> with sample data
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!previewData ? (
+            <div className="py-8 text-center text-muted-foreground">Loading preview...</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-md p-4">
+                <p className="text-sm font-medium mb-1">Subject:</p>
+                <p className="text-base" data-testid="text-preview-subject">{previewData.subject}</p>
+              </div>
+
+              <Tabs value={previewTab} onValueChange={setPreviewTab}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="plain" className="flex-1" data-testid="tab-plain-text">
+                    Plain Text
+                  </TabsTrigger>
+                  <TabsTrigger value="html" className="flex-1" data-testid="tab-html">
+                    HTML Preview
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="plain" className="mt-4">
+                  <div className="bg-muted/30 rounded-md p-4 max-h-96 overflow-y-auto">
+                    <pre className="whitespace-pre-wrap text-sm font-sans" data-testid="text-preview-plain">
+                      {previewData.plainText}
+                    </pre>
+                  </div>
+                </TabsContent>
+                <TabsContent value="html" className="mt-4">
+                  <div 
+                    className="bg-white dark:bg-gray-900 rounded-md p-4 max-h-96 overflow-y-auto border"
+                    data-testid="div-preview-html"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewData.htmlBody) }}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPreviewingTemplate(null)}
+              data-testid="button-close-preview"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Test Email Dialog */}
+      <Dialog open={!!sendTestTemplate} onOpenChange={(open) => !open && setSendTestTemplate(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle data-testid="text-send-test-dialog-title">Send Test Email</DialogTitle>
+            <DialogDescription>
+              {sendTestTemplate && (
+                <>
+                  Send a test version of <span className="font-medium">{sendTestTemplate.name}</span> with sample data
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="test-email">Email Address</Label>
+              <Input
+                id="test-email"
+                type="email"
+                data-testid="input-test-email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="Enter email address..."
+              />
+              <p className="text-xs text-muted-foreground">
+                The test email will be sent with sample booking data and [TEST] prefix in the subject line.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSendTestTemplate(null)}
+              data-testid="button-cancel-send-test"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendTestConfirm}
+              disabled={!testEmail || sendTestMutation.isPending}
+              data-testid="button-confirm-send-test"
+            >
+              {sendTestMutation.isPending ? "Sending..." : "Send Test Email"}
             </Button>
           </DialogFooter>
         </DialogContent>

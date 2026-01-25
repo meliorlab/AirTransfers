@@ -136,6 +136,22 @@ export class WebhookHandlers {
           } catch (emailError) {
             console.error('Failed to send booking confirmation email:', emailError);
           }
+          
+          // Send payment confirmation email
+          try {
+            await emailService.sendPaymentConfirmation({
+              customerEmail: booking.customerEmail,
+              customerName: booking.customerName,
+              referenceNumber: booking.referenceNumber,
+              pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+              pickupLocation: booking.pickupLocation,
+              dropoffLocation: booking.dropoffLocation,
+              totalAmount: booking.totalAmount || '0.00',
+            });
+            console.log(`Payment confirmation email sent for ${booking.referenceNumber}`);
+          } catch (emailError) {
+            console.error('Failed to send payment confirmation email:', emailError);
+          }
         } catch (createError) {
           console.error('Failed to create booking after payment:', createError);
         }
@@ -153,23 +169,20 @@ export class WebhookHandlers {
           await storage.updateBookingStatus(bookingId, 'paid_fee');
           console.log(`Booking ${booking.referenceNumber} status updated to paid_fee`);
           
-          // Send booking confirmation email
+          // Send payment confirmation email (not booking confirmation - they already received that)
           try {
-            await emailService.sendBookingConfirmation({
+            await emailService.sendPaymentConfirmation({
               customerEmail: booking.customerEmail,
               customerName: booking.customerName,
               referenceNumber: booking.referenceNumber,
-              bookingType: booking.bookingType,
               pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
-              pickupTime: '',
               pickupLocation: booking.pickupLocation,
               dropoffLocation: booking.dropoffLocation,
-              passengers: booking.partySize,
-              totalAmount: booking.totalAmount || undefined,
+              totalAmount: booking.totalAmount || '0.00',
             });
-            console.log(`Booking confirmation email sent for booking ${booking.referenceNumber}`);
+            console.log(`Payment confirmation email sent for booking ${booking.referenceNumber}`);
           } catch (emailError) {
-            console.error('Failed to send booking confirmation email:', emailError);
+            console.error('Failed to send payment confirmation email:', emailError);
           }
         }
       }

@@ -224,8 +224,53 @@ export default function HeroSection() {
     }
   };
 
-  const handleCheckout = () => {
-    createBookingMutation.mutate();
+  const [isRedirectingToStripe, setIsRedirectingToStripe] = useState(false);
+
+  const handleCheckout = async () => {
+    if (activeTab === "hotel") {
+      // Hotel bookings: Redirect to Stripe for payment first
+      setIsRedirectingToStripe(true);
+      try {
+        const pricing = calculateTotalPrice();
+        const response = await fetch("/api/hotel-checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hotelId: selectedHotel,
+            portId: selectedPort,
+            customerName: fullName,
+            customerEmail: email,
+            customerPhone: contactNumber,
+            pickupDate: date,
+            pickupTime: time,
+            partySize: parseInt(partySize),
+            vehicleClass,
+            flightNumber,
+            totalAmount: pricing?.total.toFixed(2) || "0",
+            basePrice: pricing?.basePrice || 0,
+            surcharge: pricing?.surcharge || 0,
+            taxAmount: pricing?.taxAmount || 0,
+          }),
+        });
+        
+        const data = await response.json();
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+        } else {
+          throw new Error(data.error || "Failed to create checkout session");
+        }
+      } catch (error) {
+        setIsRedirectingToStripe(false);
+        toast({
+          title: "Checkout failed",
+          description: "There was an error redirecting to payment. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Destination bookings: Create booking directly (admin will send payment link later)
+      createBookingMutation.mutate();
+    }
   };
 
   const getVehicleClassName = () => {
@@ -693,9 +738,15 @@ export default function HeroSection() {
                       data-testid="button-checkout"
                       className="flex-1 h-12 text-base font-semibold"
                       onClick={handleCheckout}
-                      disabled={createBookingMutation.isPending}
+                      disabled={createBookingMutation.isPending || isRedirectingToStripe}
                     >
-                      {createBookingMutation.isPending ? "Processing..." : "Submit Booking"}
+                      {isRedirectingToStripe 
+                        ? "Redirecting to payment..." 
+                        : createBookingMutation.isPending 
+                          ? "Processing..." 
+                          : activeTab === "hotel" 
+                            ? "Pay & Confirm" 
+                            : "Submit Booking"}
                     </Button>
                   </div>
                 </>

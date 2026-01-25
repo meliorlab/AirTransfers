@@ -967,6 +967,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Hotel checkout - create Stripe checkout session (public endpoint)
+  // SECURITY: Price is computed server-side using stored rates to prevent tampering
+  app.post("/api/hotel-checkout", async (req: Request, res: Response) => {
+    try {
+      const {
+        hotelId,
+        portId,
+        customerName,
+        customerEmail,
+        customerPhone,
+        pickupDate,
+        pickupTime,
+        partySize,
+        vehicleClass,
+        flightNumber,
+      } = req.body;
+
+      // Validate required fields
+      if (!hotelId || !portId || !customerName || !customerEmail || !pickupDate || !pickupTime || !partySize || !vehicleClass) {
+        return res.status(400).json({ error: "Missing required booking details" });
+      }
+      
+      // Validate partySize is a positive integer
+      const partySizeNum = parseInt(partySize);
+      if (isNaN(partySizeNum) || partySizeNum < 1) {
+        return res.status(400).json({ error: "Invalid party size" });
+      }
+
+      // Get hotel and port from database (validates they exist)
+      const hotel = await storage.getHotel(hotelId);
+      const allPorts = await storage.getActivePorts();
+      const port = allPorts.find(p => p.id === portId);
+      
+      if (!hotel) {
+        return res.status(400).json({ error: "Invalid hotel" });
+      }
+      if (!port) {
+        return res.status(400).json({ error: "Invalid port" });
+      }
+
+      // SERVER-SIDE PRICE CALCULATION - Never trust client-provided prices
+      const portHotelRate = await storage.getPortHotelRate(portId, hotelId);
+      if (!portHotelRate || !portHotelRate.price) {
+        return res.status(400).json({ error: "No rate available for this hotel and port combination" });
+      }
+      
+      const basePrice = parseFloat(portHotelRate.price);
+      
+      // Get surcharge settings from database
+      const surchargeAmountSetting = await storage.getSetting("large_party_surcharge_amount");
+      const minPartySizeSetting = await storage.getSetting("large_party_min_size");
+      const surchargeAmount = parseFloat(surchargeAmountSetting?.value || "20");
+      const minPartySize = parseInt(minPartySizeSetting?.value || "4");
+      
+      // Apply surcharge if party size meets threshold
+      const surcharge = partySizeNum >= minPartySize ? surchargeAmount : 0;
+      
+      // Get tax settings from database
+      const taxPercentageSetting = await storage.getSetting("tax_percentage");
+      const taxPercentage = parseFloat(taxPercentageSetting?.value || "0");
+      
+      // Calculate subtotal and tax
+      const subtotal = basePrice + surcharge;
+      const taxAmount = subtotal * (taxPercentage / 100);
+      const totalAmount = subtotal + taxAmount;
+      
+      const totalAmountCents = Math.round(totalAmount * 100);
+      
+      const stripe = await getUncachableStripeClient();
+      
+      // Get the origin for success/cancel URLs
+      const origin = req.headers.origin || `https://${req.headers.host}`;
+      
+      // Create Stripe checkout session with server-computed price
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Airport Transfer - ${port.name} to ${hotel.name}`,
+                description: `${partySizeNum} passenger(s), ${vehicleClass} vehicle`,
+              },
+              unit_amount: totalAmountCents,
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${origin}/?booking=success`,
+        cancel_url: `${origin}/?booking=cancelled`,
+        customer_email: customerEmail,
+        metadata: {
+          bookingType: 'hotel',
+          hotelId,
+          hotelName: hotel.name,
+          portId,
+          portName: port.name,
+          customerName,
+          customerEmail,
+          customerPhone: customerPhone || '',
+          pickupDate,
+          pickupTime,
+          partySize: String(partySizeNum),
+          vehicleClass,
+          flightNumber: flightNumber || '',
+          totalAmount: totalAmount.toFixed(2),
+          basePrice: basePrice.toFixed(2),
+          surcharge: surcharge.toFixed(2),
+          taxAmount: taxAmount.toFixed(2),
+        },
+      });
+
+      res.json({ checkoutUrl: session.url });
+    } catch (error) {
+      console.error("Hotel checkout error:", error);
+      res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+
   // Initialize default settings if not exist
   const initDefaultSettings = async () => {
     const surchargeAmount = await storage.getSetting("large_party_surcharge_amount");

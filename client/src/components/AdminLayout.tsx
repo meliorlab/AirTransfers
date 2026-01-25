@@ -23,6 +23,7 @@ import {
   LogOut,
   Settings,
   Mail,
+  UserCog,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -36,13 +37,14 @@ const menuItems = [
   { title: "Pricing Rules", url: "/admin/pricing-rules", icon: Tag },
   { title: "Emails", url: "/admin/emails", icon: Mail },
   { title: "Settings", url: "/admin/settings", icon: Settings },
+  { title: "Admin Users", url: "/admin/users", icon: UserCog },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: admin, isLoading } = useQuery({
+  const { data: admin, isLoading } = useQuery<{ id: string; username: string; email: string }>({
     queryKey: ["/api/admin/me"],
     retry: false,
   });

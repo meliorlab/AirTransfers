@@ -41,9 +41,12 @@ import { eq, and, desc, or, like, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Admin users
+  getAllAdminUsers(): Promise<AdminUser[]>;
   getAdminUser(id: string): Promise<AdminUser | undefined>;
   getAdminUserByUsername(username: string): Promise<AdminUser | undefined>;
   createAdminUser(user: InsertAdminUser): Promise<AdminUser>;
+  updateAdminUser(id: string, data: Partial<InsertAdminUser>): Promise<AdminUser | undefined>;
+  deleteAdminUser(id: string): Promise<boolean>;
   
   // Drivers
   getAllDrivers(): Promise<Driver[]>;
@@ -133,6 +136,10 @@ export interface IStorage {
 
 export class DbStorage implements IStorage {
   // Admin users
+  async getAllAdminUsers(): Promise<AdminUser[]> {
+    return await db.select().from(adminUsers).orderBy(desc(adminUsers.createdAt));
+  }
+
   async getAdminUser(id: string): Promise<AdminUser | undefined> {
     const result = await db.select().from(adminUsers).where(eq(adminUsers.id, id));
     return result[0];
@@ -146,6 +153,16 @@ export class DbStorage implements IStorage {
   async createAdminUser(user: InsertAdminUser): Promise<AdminUser> {
     const result = await db.insert(adminUsers).values(user).returning();
     return result[0];
+  }
+
+  async updateAdminUser(id: string, data: Partial<InsertAdminUser>): Promise<AdminUser | undefined> {
+    const result = await db.update(adminUsers).set(data).where(eq(adminUsers.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteAdminUser(id: string): Promise<boolean> {
+    const result = await db.delete(adminUsers).where(eq(adminUsers.id, id)).returning();
+    return result.length > 0;
   }
 
   // Drivers

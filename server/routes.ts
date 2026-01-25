@@ -119,6 +119,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Admin Users API
+  app.get("/api/admin/users", requireAdmin, async (req: Request, res: Response) => {
+    const users = await storage.getAllAdminUsers();
+    // Don't expose password hashes
+    const sanitizedUsers = users.map(({ password, ...user }) => user);
+    res.json(sanitizedUsers);
+  });
+
+  app.post("/api/admin/users", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { username, password, email } = req.body;
+      
+      if (!username || !password || !email) {
+        return res.status(400).json({ error: "Username, password, and email are required" });
+      }
+      
+      // Check if username already exists
+      const existing = await storage.getAdminUserByUsername(username);
+      if (existing) {
+        return res.status(400).json({ error: "Username already exists" });
+      }
+      
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      const user = await storage.createAdminUser({
+        username,
+        password: hashedPassword,
+        email,
+      });
+      
+      // Don't expose password hash
+      const { password: _, ...sanitizedUser } = user;
+      res.json(sanitizedUser);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid user data" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { username, password, email } = req.body;
+      const updateData: { username?: string; password?: string; email?: string } = {};
+      
+      if (username) {
+        // Check if username is taken by another user
+        const existing = await storage.getAdminUserByUsername(username);
+        if (existing && existing.id !== req.params.id) {
+          return res.status(400).json({ error: "Username already exists" });
+        }
+        updateData.username = username;
+      }
+      
+      if (email) {
+        updateData.email = email;
+      }
+      
+      if (password) {
+        updateData.password = await bcrypt.hash(password, 10);
+      }
+      
+      const user = await storage.updateAdminUser(req.params.id, updateData);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Don't expose password hash
+      const { password: _, ...sanitizedUser } = user;
+      res.json(sanitizedUser);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid user data" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", requireAdmin, async (req: Request, res: Response) => {
+    // Prevent deleting yourself
+    const currentAdminId = (req.session as any).adminId;
+    if (req.params.id === currentAdminId) {
+      return res.status(400).json({ error: "Cannot delete your own account" });
+    }
+    
+    const success = await storage.deleteAdminUser(req.params.id);
+    if (!success) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json({ success: true });
+  });
+
   // Drivers API
   app.get("/api/admin/drivers", requireAdmin, async (req: Request, res: Response) => {
     const drivers = await storage.getAllDrivers();

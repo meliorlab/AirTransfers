@@ -98,9 +98,6 @@ export default function AdminLogin() {
               {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
-          <div className="mt-4 text-sm text-muted-foreground text-center">
-            Default credentials: admin / admin123
-          </div>
         </CardContent>
       </Card>
     </div>

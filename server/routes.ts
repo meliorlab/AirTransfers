@@ -28,6 +28,11 @@ function generateReferenceNumber(): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Trust proxy for production (Replit apps are behind a proxy)
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+  
   // Configure session middleware
   const PgSession = connectPgSimple(session);
   
@@ -44,6 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'lax' : undefined,
     }
   }));
 

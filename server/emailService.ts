@@ -247,6 +247,7 @@ export class EmailService {
     customerName: string;
     referenceNumber: string;
     pickupDate: string;
+    pickupTime?: string;
     pickupLocation: string;
     dropoffLocation: string;
     totalAmount: string;
@@ -259,6 +260,7 @@ export class EmailService {
       customerName: booking.customerName,
       referenceNumber: booking.referenceNumber,
       pickupDate: booking.pickupDate,
+      pickupTime: booking.pickupTime || '',
       pickupLocation: booking.pickupLocation,
       dropoffLocation: booking.dropoffLocation,
       totalAmount: booking.totalAmount,
@@ -281,6 +283,7 @@ export class EmailService {
           <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <p><strong>Reference Number:</strong> ${booking.referenceNumber}</p>
             <p><strong>Pickup Date:</strong> ${booking.pickupDate}</p>
+            ${booking.pickupTime ? `<p><strong>Pickup Time:</strong> ${booking.pickupTime}</p>` : ''}
             <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
             <p><strong>Dropoff Location:</strong> ${booking.dropoffLocation}</p>
             <p><strong>Amount Paid:</strong> $${booking.totalAmount}</p>
@@ -317,6 +320,7 @@ export class EmailService {
     customerName: string;
     customerPhone: string;
     pickupDate: string;
+    pickupTime?: string;
     pickupLocation: string;
     dropoffLocation: string;
     partySize: number;
@@ -334,6 +338,7 @@ export class EmailService {
       customerName: booking.customerName,
       customerPhone: booking.customerPhone,
       pickupDate: booking.pickupDate,
+      pickupTime: booking.pickupTime || '',
       pickupLocation: booking.pickupLocation,
       dropoffLocation: booking.dropoffLocation,
       partySize: booking.partySize,
@@ -360,6 +365,7 @@ export class EmailService {
             <h3 style="margin-top: 0;">Trip Details</h3>
             <p><strong>Reference Number:</strong> ${booking.referenceNumber}</p>
             <p><strong>Pickup Date:</strong> ${booking.pickupDate}</p>
+            ${booking.pickupTime ? `<p><strong>Pickup Time:</strong> ${booking.pickupTime}</p>` : ''}
             <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
             <p><strong>Dropoff Location:</strong> ${booking.dropoffLocation}</p>
             <p><strong>Flight Number:</strong> ${booking.flightNumber}</p>

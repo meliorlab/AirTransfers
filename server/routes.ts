@@ -632,6 +632,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send email notification to the driver
       if (driver && driver.email) {
         try {
+          const pickupDateTime = booking.pickupDate ? new Date(booking.pickupDate) : null;
+          const pickupTimeStr = pickupDateTime ? pickupDateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+          
           await emailService.sendDriverAssignment(
             {
               driverEmail: driver.email,
@@ -641,7 +644,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               referenceNumber: booking.referenceNumber,
               customerName: booking.customerName,
               customerPhone: booking.customerPhone,
-              pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+              pickupDate: pickupDateTime ? pickupDateTime.toLocaleDateString() : '',
+              pickupTime: pickupTimeStr,
               pickupLocation: booking.pickupLocation,
               dropoffLocation: booking.dropoffLocation,
               partySize: booking.partySize,

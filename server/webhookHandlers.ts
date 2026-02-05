@@ -146,6 +146,7 @@ export class WebhookHandlers {
               customerName: booking.customerName,
               referenceNumber: booking.referenceNumber,
               pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+              pickupTime: metadata.pickupTime || '',
               pickupLocation: booking.pickupLocation,
               dropoffLocation: booking.dropoffLocation,
               totalAmount: booking.totalAmount || '0.00',
@@ -173,11 +174,15 @@ export class WebhookHandlers {
           
           // Send payment confirmation email (not booking confirmation - they already received that)
           try {
+            const pickupDateTime = booking.pickupDate ? new Date(booking.pickupDate) : null;
+            const pickupTimeStr = pickupDateTime ? pickupDateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+            
             await emailService.sendPaymentConfirmation({
               customerEmail: booking.customerEmail,
               customerName: booking.customerName,
               referenceNumber: booking.referenceNumber,
-              pickupDate: booking.pickupDate ? new Date(booking.pickupDate).toLocaleDateString() : '',
+              pickupDate: pickupDateTime ? pickupDateTime.toLocaleDateString() : '',
+              pickupTime: pickupTimeStr,
               pickupLocation: booking.pickupLocation,
               dropoffLocation: booking.dropoffLocation,
               totalAmount: booking.totalAmount || '0.00',

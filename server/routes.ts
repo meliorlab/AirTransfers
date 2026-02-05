@@ -981,6 +981,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pickupLocation: "Hewanorra International Airport (UVF)",
         dropoffLocation: "Sandals Grande St. Lucian",
         passengers: "4",
+        tripPrice: "$80.00",
+        taxAmount: "$5.00",
         totalAmount: "$85.00",
         bookingFee: "$30.00",
         driverFee: "$55.00",
@@ -1046,6 +1048,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pickupLocation: "Hewanorra International Airport (UVF)",
         dropoffLocation: "Sandals Grande St. Lucian",
         passengers: "4",
+        tripPrice: "$80.00",
+        taxAmount: "$5.00",
         totalAmount: "$85.00",
         bookingFee: "$30.00",
         driverFee: "$55.00",
@@ -1336,10 +1340,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   initDefaultSettings().catch(console.error);
 
-  // Initialize default email templates if not exist
+  // Initialize default email templates or update availableVariables for existing ones
   const initDefaultEmailTemplates = async () => {
     const existingTemplates = await storage.getAllEmailTemplates();
-    if (existingTemplates.length > 0) return;
+    const existingByKey = new Map(existingTemplates.map(t => [t.templateKey, t]));
 
     const defaultTemplates = [
       {
@@ -1358,6 +1362,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     <p><strong>Pickup Location:</strong> {{pickupLocation}}</p>
     <p><strong>Dropoff Location:</strong> {{dropoffLocation}}</p>
     <p><strong>Passengers:</strong> {{passengers}}</p>
+    <p><strong>Trip Price:</strong> {{tripPrice}}</p>
+    <p><strong>Tax:</strong> {{taxAmount}}</p>
     <p><strong>Total:</strong> {{totalAmount}}</p>
   </div>
   
@@ -1366,7 +1372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </div>`,
         triggerDescription: "Sent when a customer completes a booking",
         recipientType: "customer",
-        availableVariables: ["customerName", "referenceNumber", "pickupDate", "pickupTime", "pickupLocation", "dropoffLocation", "passengers", "totalAmount"],
+        availableVariables: ["customerName", "referenceNumber", "pickupDate", "pickupTime", "pickupLocation", "dropoffLocation", "passengers", "tripPrice", "taxAmount", "totalAmount"],
       },
       {
         templateKey: "quote_notification",
@@ -1432,6 +1438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
     <p><strong>Reference Number:</strong> {{referenceNumber}}</p>
     <p><strong>Pickup Date:</strong> {{pickupDate}}</p>
+    <p><strong>Pickup Time:</strong> {{pickupTime}}</p>
     <p><strong>Pickup Location:</strong> {{pickupLocation}}</p>
     <p><strong>Dropoff Location:</strong> {{dropoffLocation}}</p>
     <p><strong>Amount Paid:</strong> \${{totalAmount}}</p>
@@ -1444,7 +1451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </div>`,
         triggerDescription: "Sent when customer completes payment via Stripe",
         recipientType: "customer",
-        availableVariables: ["customerName", "referenceNumber", "pickupDate", "pickupLocation", "dropoffLocation", "totalAmount"],
+        availableVariables: ["customerName", "referenceNumber", "pickupDate", "pickupTime", "pickupLocation", "dropoffLocation", "totalAmount"],
       },
       {
         templateKey: "driver_assignment",
@@ -1459,6 +1466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     <h3 style="margin-top: 0;">Trip Details</h3>
     <p><strong>Reference Number:</strong> {{referenceNumber}}</p>
     <p><strong>Pickup Date:</strong> {{pickupDate}}</p>
+    <p><strong>Pickup Time:</strong> {{pickupTime}}</p>
     <p><strong>Pickup Location:</strong> {{pickupLocation}}</p>
     <p><strong>Dropoff Location:</strong> {{dropoffLocation}}</p>
     <p><strong>Flight Number:</strong> {{flightNumber}}</p>
@@ -1481,7 +1489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </div>`,
         triggerDescription: "Sent to driver when admin assigns them to a booking",
         recipientType: "driver",
-        availableVariables: ["driverName", "referenceNumber", "pickupDate", "pickupLocation", "dropoffLocation", "flightNumber", "vehicleClass", "partySize", "customerName", "customerPhone", "driverFee"],
+        availableVariables: ["driverName", "referenceNumber", "pickupDate", "pickupTime", "pickupLocation", "dropoffLocation", "flightNumber", "vehicleClass", "partySize", "customerName", "customerPhone", "driverFee"],
       },
       {
         templateKey: "driver_assigned_customer",
@@ -1512,9 +1520,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ];
 
     for (const template of defaultTemplates) {
-      await storage.createEmailTemplate(template);
+      const existing = existingByKey.get(template.templateKey);
+      if (existing) {
+        // Update availableVariables for existing templates to ensure they have the latest variables
+        if (JSON.stringify(existing.availableVariables) !== JSON.stringify(template.availableVariables)) {
+          await storage.updateEmailTemplate(existing.id, { 
+            availableVariables: template.availableVariables 
+          });
+          console.log(`Updated availableVariables for template: ${template.templateKey}`);
+        }
+      } else {
+        await storage.createEmailTemplate(template);
+        console.log(`Created new template: ${template.templateKey}`);
+      }
     }
-    console.log("Default email templates seeded");
   };
   
   initDefaultEmailTemplates().catch(console.error);

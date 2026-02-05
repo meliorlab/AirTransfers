@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Home, Mail, Calendar, MapPin, Users, Car, Plane } from "lucide-react";
+import { Check, Home, Mail, Calendar, MapPin, Users, Car, Plane, Clock } from "lucide-react";
 
 interface BookingDetails {
   referenceNumber: string;
@@ -14,18 +14,32 @@ interface BookingDetails {
   partySize: number;
   vehicleClass: string;
   flightNumber: string | null;
-  totalAmount: string;
+  totalAmount: string | null;
+  bookingType?: string;
 }
 
 export default function BookingConfirmation() {
   const [, setLocation] = useLocation();
   const params = new URLSearchParams(window.location.search);
   const sessionId = params.get("session_id");
+  const referenceNumber = params.get("ref");
 
-  const { data: booking, isLoading, isError } = useQuery<BookingDetails>({
+  // For hotel bookings (with Stripe session)
+  const { data: bookingBySession, isLoading: isLoadingSession, isError: isErrorSession } = useQuery<BookingDetails>({
     queryKey: [`/api/booking-confirmation/${sessionId}`],
     enabled: !!sessionId,
   });
+
+  // For destination bookings (with reference number)
+  const { data: bookingByRef, isLoading: isLoadingRef, isError: isErrorRef } = useQuery<BookingDetails>({
+    queryKey: [`/api/booking-by-reference/${referenceNumber}`],
+    enabled: !!referenceNumber && !sessionId,
+  });
+
+  const booking = bookingBySession || bookingByRef;
+  const isLoading = isLoadingSession || isLoadingRef;
+  const isError = (sessionId && isErrorSession) || (referenceNumber && isErrorRef);
+  const isDestinationBooking = booking?.bookingType === "destination";
 
   const getVehicleClassName = (vehicleClass: string) => {
     switch (vehicleClass) {
@@ -36,7 +50,7 @@ export default function BookingConfirmation() {
     }
   };
 
-  if (!sessionId) {
+  if (!sessionId && !referenceNumber) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
         <Card className="w-full max-w-lg">
@@ -44,7 +58,7 @@ export default function BookingConfirmation() {
             <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
               <Mail className="w-8 h-8 text-amber-600 dark:text-amber-400" />
             </div>
-            <h2 data-testid="text-confirmation-title" className="text-xl font-semibold mb-2">No Booking Session</h2>
+            <h2 data-testid="text-confirmation-title" className="text-xl font-semibold mb-2">No Booking Found</h2>
             <p data-testid="text-error-message" className="text-muted-foreground mb-6">
               No booking session found. Please check your email for confirmation details.
             </p>
@@ -205,14 +219,28 @@ export default function BookingConfirmation() {
             )}
           </div>
 
-          <div className="border-t pt-4">
-            <div className="flex justify-between items-center">
-              <span data-testid="text-total-label" className="text-muted-foreground">Total Paid</span>
-              <span data-testid="text-total-amount" className="text-2xl font-bold text-primary">
-                ${parseFloat(booking.totalAmount).toFixed(2)}
-              </span>
+          {isDestinationBooking ? (
+            <div className="border-t pt-4">
+              <div className="flex items-start gap-3">
+                <Clock className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p data-testid="text-pricing-status" className="font-medium">Quote Pending</p>
+                  <p className="text-sm text-muted-foreground">
+                    We'll review your destination and send you a custom quote with pricing shortly.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : booking.totalAmount ? (
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center">
+                <span data-testid="text-total-label" className="text-muted-foreground">Total Paid</span>
+                <span data-testid="text-total-amount" className="text-2xl font-bold text-primary">
+                  ${parseFloat(booking.totalAmount).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          ) : null}
 
           <div className="bg-muted/50 rounded-lg p-4 text-center text-sm text-muted-foreground">
             A confirmation email has been sent to <strong data-testid="text-customer-email">{booking.customerEmail}</strong>

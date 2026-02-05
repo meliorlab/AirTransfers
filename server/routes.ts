@@ -1136,9 +1136,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         vehicleClass: booking.vehicleClass,
         flightNumber: booking.flightNumber,
         totalAmount: booking.totalAmount,
+        bookingType: booking.bookingType,
       });
     } catch (error) {
       console.error("Error fetching booking confirmation:", error);
+      res.status(500).json({ error: "Failed to fetch booking" });
+    }
+  });
+
+  // Public endpoint to get booking by reference number (for destination booking confirmation)
+  app.get("/api/booking-by-reference/:referenceNumber", async (req: Request, res: Response) => {
+    try {
+      const { referenceNumber } = req.params;
+      
+      if (!referenceNumber) {
+        return res.status(400).json({ error: "Reference number required" });
+      }
+      
+      const booking = await storage.getBookingByReference(referenceNumber);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      
+      // Return only the fields needed for the confirmation page
+      res.json({
+        referenceNumber: booking.referenceNumber,
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        pickupLocation: booking.pickupLocation,
+        dropoffLocation: booking.dropoffLocation,
+        pickupDate: booking.pickupDate,
+        partySize: booking.partySize,
+        vehicleClass: booking.vehicleClass,
+        flightNumber: booking.flightNumber,
+        totalAmount: booking.totalAmount,
+        bookingType: booking.bookingType,
+      });
+    } catch (error) {
+      console.error("Error fetching booking by reference:", error);
       res.status(500).json({ error: "Failed to fetch booking" });
     }
   });

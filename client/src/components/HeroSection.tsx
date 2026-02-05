@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -32,6 +33,7 @@ import heroImage from "@assets/generated_images/Airport_professional_greeting_sc
 import type { Hotel, Port } from "@shared/schema";
 
 export default function HeroSection() {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("hotel");
   const [currentStep, setCurrentStep] = useState(1);
@@ -132,11 +134,15 @@ export default function HeroSection() {
       return response.json();
     },
     onSuccess: (data) => {
-      toast({
-        title: "Booking created!",
-        description: `Your booking reference is ${data.referenceNumber}. We'll contact you shortly.`,
-      });
-      resetForm();
+      if (activeTab === "destination") {
+        setLocation(`/booking/confirmation?ref=${data.referenceNumber}`);
+      } else {
+        toast({
+          title: "Booking created!",
+          description: `Your booking reference is ${data.referenceNumber}. We'll contact you shortly.`,
+        });
+        resetForm();
+      }
     },
     onError: () => {
       toast({

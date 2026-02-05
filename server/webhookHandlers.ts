@@ -131,6 +131,8 @@ export class WebhookHandlers {
               dropoffLocation: booking.dropoffLocation,
               passengers: booking.partySize,
               totalAmount: booking.totalAmount || undefined,
+              tripPrice: subtotal.toFixed(2),
+              taxAmount: taxAmount.toFixed(2),
             });
             console.log(`Booking confirmation email sent for ${booking.referenceNumber}`);
           } catch (emailError) {

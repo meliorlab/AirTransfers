@@ -22,13 +22,21 @@ export class EmailService {
     dropoffLocation: string;
     passengers: number;
     totalAmount?: string;
+    tripPrice?: string;
+    taxAmount?: string;
   }) {
     const { client, fromEmail } = await getUncachableResendClient();
     
     const isHotelBooking = booking.bookingType === 'hotel';
-    const priceText = isHotelBooking 
-      ? `$${booking.totalAmount || '30.00'}` 
-      : 'Quote pending - we will contact you shortly';
+    
+    let priceBreakdown: string;
+    if (!isHotelBooking) {
+      priceBreakdown = 'Quote pending - we will contact you shortly';
+    } else if (booking.tripPrice && booking.taxAmount && parseFloat(booking.taxAmount) > 0) {
+      priceBreakdown = `Trip: $${parseFloat(booking.tripPrice).toFixed(2)} + Tax: $${parseFloat(booking.taxAmount).toFixed(2)} = Total: $${parseFloat(booking.totalAmount || '0').toFixed(2)}`;
+    } else {
+      priceBreakdown = `$${parseFloat(booking.totalAmount || '30.00').toFixed(2)}`;
+    }
 
     const template = await storage.getEmailTemplateByKey('booking_confirmation');
     
@@ -40,7 +48,9 @@ export class EmailService {
       pickupLocation: booking.pickupLocation,
       dropoffLocation: booking.dropoffLocation,
       passengers: booking.passengers,
-      totalAmount: priceText,
+      totalAmount: priceBreakdown,
+      tripPrice: booking.tripPrice ? `$${parseFloat(booking.tripPrice).toFixed(2)}` : '',
+      taxAmount: booking.taxAmount ? `$${parseFloat(booking.taxAmount).toFixed(2)}` : '$0.00',
     };
 
     let subject: string;
@@ -54,6 +64,15 @@ export class EmailService {
       }
     } else {
       subject = `Booking Confirmation - ${booking.referenceNumber}`;
+      
+      const pricingSection = isHotelBooking && booking.tripPrice && booking.taxAmount && parseFloat(booking.taxAmount) > 0
+        ? `
+            <p><strong>Trip Price:</strong> $${parseFloat(booking.tripPrice).toFixed(2)}</p>
+            <p><strong>Tax:</strong> $${parseFloat(booking.taxAmount).toFixed(2)}</p>
+            <p style="font-size: 16px;"><strong>Total:</strong> $${parseFloat(booking.totalAmount || '0').toFixed(2)}</p>
+          `
+        : `<p><strong>Total:</strong> ${priceBreakdown}</p>`;
+      
       html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #1a1a2e;">Booking Confirmation</h1>
@@ -67,7 +86,7 @@ export class EmailService {
             <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
             <p><strong>Dropoff Location:</strong> ${booking.dropoffLocation}</p>
             <p><strong>Passengers:</strong> ${booking.passengers}</p>
-            <p><strong>Total:</strong> ${priceText}</p>
+            ${pricingSection}
           </div>
           
           ${!isHotelBooking ? `

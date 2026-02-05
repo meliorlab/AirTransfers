@@ -762,7 +762,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const stripe = await getUncachableStripeClient();
       
-      const paymentLink = await stripe.paymentLinks.create({
+      // Determine the origin URL for the success redirect
+      const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+      
+      // Create a Stripe Checkout Session instead of Payment Link for proper redirect
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
         line_items: [
           {
             price_data: {
@@ -780,7 +785,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           bookingId: booking.id,
           referenceNumber: booking.referenceNumber,
         },
+        success_url: `${origin}/booking/confirmation?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/`,
       });
+      
+      // Store the session ID on the booking for confirmation lookup
+      await storage.updateBooking(booking.id, { stripeSessionId: session.id });
 
       try {
         await emailService.sendPaymentLink({
@@ -788,7 +798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customerName: booking.customerName,
           referenceNumber: booking.referenceNumber,
           totalAmount: booking.totalAmount || "0",
-          paymentLink: paymentLink.url,
+          paymentLink: session.url || '',
         });
       } catch (emailError) {
         console.error("Email sending failed:", emailError);
@@ -798,7 +808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ 
         booking: updatedBooking,
-        paymentLink: paymentLink.url,
+        paymentLink: session.url,
         message: `Payment link sent to ${booking.customerEmail}. Total amount: $${booking.totalAmount}` 
       });
     } catch (error) {

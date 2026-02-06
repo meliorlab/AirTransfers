@@ -25,7 +25,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ArrowLeft, User, Mail, Phone, Calendar, MapPin, Plane, Car, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, User, Mail, Phone, Calendar, MapPin, Plane, Car, Users, DollarSign } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Booking, Driver } from "@shared/schema";
@@ -58,6 +60,8 @@ export default function AdminBookingDetail() {
   const { toast } = useToast();
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [pricingBookingFee, setPricingBookingFee] = useState("");
+  const [pricingDriverFee, setPricingDriverFee] = useState("");
 
   const { data: booking, isLoading } = useQuery<Booking>({
     queryKey: [`/api/admin/bookings/${params?.id}`],
@@ -90,6 +94,29 @@ export default function AdminBookingDetail() {
       toast({
         title: "Assignment failed",
         description: "Failed to assign driver",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const setPricingMutation = useMutation({
+    mutationFn: async (data: { bookingFee: string; driverFee: string }) => {
+      return await apiRequest("PATCH", `/api/admin/bookings/${params?.id}/pricing`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/bookings/${params?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+      toast({
+        title: "Pricing set",
+        description: "Booking pricing has been saved and the customer will be notified.",
+      });
+      setPricingBookingFee("");
+      setPricingDriverFee("");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to set pricing",
         variant: "destructive",
       });
     },
@@ -269,8 +296,57 @@ export default function AdminBookingDetail() {
                         </div>
                       </>
                     ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        Pricing not yet set. Set pricing below to generate payment link.
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                          Set the pricing for this destination booking. The customer will be notified once saved.
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="pricing-booking-fee">Booking Fee ($)</Label>
+                            <Input
+                              id="pricing-booking-fee"
+                              data-testid="input-pricing-booking-fee"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={pricingBookingFee}
+                              onChange={(e) => setPricingBookingFee(e.target.value)}
+                              placeholder="30.00"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="pricing-driver-fee">Driver Fee ($)</Label>
+                            <Input
+                              id="pricing-driver-fee"
+                              data-testid="input-pricing-driver-fee"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={pricingDriverFee}
+                              onChange={(e) => setPricingDriverFee(e.target.value)}
+                              placeholder="50.00"
+                            />
+                          </div>
+                        </div>
+                        {pricingBookingFee && pricingDriverFee && (
+                          <div className="flex justify-between pt-2 border-t text-sm">
+                            <span className="text-muted-foreground">Estimated Total (before tax)</span>
+                            <span className="font-medium">
+                              ${(parseFloat(pricingBookingFee || "0") + parseFloat(pricingDriverFee || "0")).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        <Button
+                          onClick={() => setPricingMutation.mutate({
+                            bookingFee: pricingBookingFee,
+                            driverFee: pricingDriverFee,
+                          })}
+                          disabled={setPricingMutation.isPending || !pricingBookingFee || !pricingDriverFee}
+                          data-testid="button-set-pricing"
+                        >
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          {setPricingMutation.isPending ? "Saving..." : "Set Pricing"}
+                        </Button>
                       </div>
                     )}
                   </>
